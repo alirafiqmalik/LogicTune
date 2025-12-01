@@ -22,6 +22,13 @@ from transformers import (
 from peft import LoraConfig, prepare_model_for_kbit_training
 from trl import DPOTrainer
 
+# Try to import DPOConfig for newer TRL versions
+try:
+    from trl import DPOConfig
+    HAS_DPO_CONFIG = True
+except ImportError:
+    HAS_DPO_CONFIG = False
+
 
 def load_dpo_dataset(file_path: str) -> Dataset:
     """
@@ -175,42 +182,81 @@ def train_dpo(
     )
     ref_model.eval()
     
-    # Use TrainingArguments for compatibility across all TRL versions
-    training_args = TrainingArguments(
-        output_dir=output_dir,
-        num_train_epochs=num_epochs,
-        per_device_train_batch_size=batch_size,
-        per_device_eval_batch_size=batch_size,
-        learning_rate=learning_rate,
-        lr_scheduler_type="cosine",
-        warmup_steps=100,
-        logging_steps=10,
-        save_steps=100,
-        eval_steps=100 if eval_dataset else None,
-        eval_strategy="steps" if eval_dataset else "no",  # Updated from evaluation_strategy (deprecated in transformers>=4.44)
-        save_total_limit=3,
-        bf16=torch.cuda.is_bf16_supported(),
-        fp16=torch.cuda.is_available() and not torch.cuda.is_bf16_supported(),
-        remove_unused_columns=False,
-        report_to="none",
-        gradient_accumulation_steps=4,
-        gradient_checkpointing=True,
-    )
+    # Configure training arguments - try DPOConfig first for DPO-specific params
+    training_args_dict = {
+        "output_dir": output_dir,
+        "num_train_epochs": num_epochs,
+        "per_device_train_batch_size": batch_size,
+        "per_device_eval_batch_size": batch_size,
+        "learning_rate": learning_rate,
+        "lr_scheduler_type": "cosine",
+        "warmup_steps": 100,
+        "logging_steps": 10,
+        "save_steps": 100,
+        "eval_steps": 100 if eval_dataset else None,
+        "eval_strategy": "steps" if eval_dataset else "no",
+        "save_total_limit": 3,
+        "bf16": torch.cuda.is_bf16_supported(),
+        "fp16": torch.cuda.is_available() and not torch.cuda.is_bf16_supported(),
+        "remove_unused_columns": False,
+        "report_to": "none",
+        "gradient_accumulation_steps": 4,
+        "gradient_checkpointing": True,
+    }
+    
+    # Try to use DPOConfig if available (newer TRL versions)
+    if HAS_DPO_CONFIG:
+        try:
+            training_args = DPOConfig(
+                **training_args_dict,
+                beta=beta,
+                max_length=max_length,
+                max_prompt_length=max_prompt_length,
+            )
+            print(f"Using DPOConfig with beta={beta}")
+        except TypeError:
+            # DPOConfig doesn't support these params, fall back to TrainingArguments
+            training_args = TrainingArguments(**training_args_dict)
+    else:
+        training_args = TrainingArguments(**training_args_dict)
     
     print("\nInitializing DPO Trainer...")
-    # DPO-specific parameters passed directly to trainer
-    trainer = DPOTrainer(
-        model=model,
-        ref_model=ref_model,
-        args=training_args,
-        beta=beta,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        tokenizer=tokenizer,
-        peft_config=peft_config,
-        max_length=max_length,
-        max_prompt_length=max_prompt_length,
-    )
+    # Initialize DPOTrainer with version-agnostic approach
+    trainer_kwargs = {
+        "model": model,
+        "ref_model": ref_model,
+        "args": training_args,
+        "train_dataset": train_dataset,
+        "tokenizer": tokenizer,
+        "peft_config": peft_config,
+    }
+    
+    if eval_dataset is not None:
+        trainer_kwargs["eval_dataset"] = eval_dataset
+    
+    # Check if beta is already in config (DPOConfig was used)
+    beta_in_config = hasattr(training_args, 'beta')
+    
+    if not beta_in_config:
+        # Try to pass DPO params directly to trainer
+        try:
+            trainer = DPOTrainer(
+                **trainer_kwargs,
+                beta=beta,
+                max_length=max_length,
+                max_prompt_length=max_prompt_length,
+            )
+            print(f"Initialized DPOTrainer with beta={beta}")
+        except TypeError as e:
+            # Parameters not supported, use defaults
+            if "beta" in str(e) or "max_length" in str(e) or "max_prompt_length" in str(e):
+                print(f"Note: DPO parameters use library defaults (TRL version compatibility)")
+                trainer = DPOTrainer(**trainer_kwargs)
+            else:
+                raise
+    else:
+        # Beta already configured in training_args
+        trainer = DPOTrainer(**trainer_kwargs)
     
     print("\n" + "="*60)
     print("STARTING TRAINING")
