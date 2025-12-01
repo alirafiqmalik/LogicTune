@@ -20,7 +20,7 @@ from transformers import (
     BitsAndBytesConfig
 )
 from peft import LoraConfig, prepare_model_for_kbit_training
-from trl import DPOTrainer, DPOConfig
+from trl import DPOTrainer
 
 
 def load_dpo_dataset(file_path: str) -> Dataset:
@@ -175,7 +175,8 @@ def train_dpo(
     )
     ref_model.eval()
     
-    training_args = DPOConfig(
+    # Use TrainingArguments for compatibility across all TRL versions
+    training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=num_epochs,
         per_device_train_batch_size=batch_size,
@@ -192,22 +193,23 @@ def train_dpo(
         fp16=torch.cuda.is_available() and not torch.cuda.is_bf16_supported(),
         remove_unused_columns=False,
         report_to="none",
-        beta=beta,
-        max_length=max_length,
-        max_prompt_length=max_prompt_length,
         gradient_accumulation_steps=4,
         gradient_checkpointing=True,
     )
     
     print("\nInitializing DPO Trainer...")
+    # DPO-specific parameters passed directly to trainer
     trainer = DPOTrainer(
         model=model,
         ref_model=ref_model,
         args=training_args,
+        beta=beta,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         tokenizer=tokenizer,
         peft_config=peft_config,
+        max_length=max_length,
+        max_prompt_length=max_prompt_length,
     )
     
     print("\n" + "="*60)
