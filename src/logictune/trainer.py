@@ -187,7 +187,7 @@ def train_dpo(
         logging_steps=10,
         save_steps=100,
         eval_steps=100 if eval_dataset else None,
-        evaluation_strategy="steps" if eval_dataset else "no",
+        eval_strategy="steps" if eval_dataset else "no",  # Updated from evaluation_strategy (deprecated in transformers>=4.44)
         save_total_limit=3,
         bf16=torch.cuda.is_bf16_supported(),
         fp16=torch.cuda.is_available() and not torch.cuda.is_bf16_supported(),
