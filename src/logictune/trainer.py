@@ -221,42 +221,114 @@ def train_dpo(
         training_args = TrainingArguments(**training_args_dict)
     
     print("\nInitializing DPO Trainer...")
-    # Initialize DPOTrainer with version-agnostic approach
-    trainer_kwargs = {
-        "model": model,
-        "ref_model": ref_model,
-        "args": training_args,
-        "train_dataset": train_dataset,
-        "tokenizer": tokenizer,
-        "peft_config": peft_config,
-    }
-    
-    if eval_dataset is not None:
-        trainer_kwargs["eval_dataset"] = eval_dataset
+    # Initialize DPOTrainer with comprehensive version-agnostic approach
+    # Different TRL versions have different parameter names and requirements
     
     # Check if beta is already in config (DPOConfig was used)
     beta_in_config = hasattr(training_args, 'beta')
     
-    if not beta_in_config:
-        # Try to pass DPO params directly to trainer
+    # Try different parameter combinations for maximum compatibility
+    # Newer TRL: processing_class instead of tokenizer
+    # Older TRL: tokenizer, beta, max_length as direct params
+    
+    def try_init_trainer(**kwargs):
+        """Try to initialize trainer with given kwargs, handling version differences"""
         try:
-            trainer = DPOTrainer(
-                **trainer_kwargs,
-                beta=beta,
-                max_length=max_length,
-                max_prompt_length=max_prompt_length,
-            )
-            print(f"Initialized DPOTrainer with beta={beta}")
+            return DPOTrainer(**kwargs), True
         except TypeError as e:
-            # Parameters not supported, use defaults
-            if "beta" in str(e) or "max_length" in str(e) or "max_prompt_length" in str(e):
-                print(f"Note: DPO parameters use library defaults (TRL version compatibility)")
-                trainer = DPOTrainer(**trainer_kwargs)
-            else:
-                raise
-    else:
-        # Beta already configured in training_args
-        trainer = DPOTrainer(**trainer_kwargs)
+            error_msg = str(e)
+            # Handle specific parameter issues
+            if "'tokenizer'" in error_msg:
+                # Try with processing_class instead (newer TRL)
+                if 'tokenizer' in kwargs:
+                    kwargs_copy = kwargs.copy()
+                    kwargs_copy['processing_class'] = kwargs_copy.pop('tokenizer')
+                    try:
+                        return DPOTrainer(**kwargs_copy), True
+                    except TypeError:
+                        pass
+            elif "'processing_class'" in error_msg:
+                # Try with tokenizer instead (older TRL)
+                if 'processing_class' in kwargs:
+                    kwargs_copy = kwargs.copy()
+                    kwargs_copy['tokenizer'] = kwargs_copy.pop('processing_class')
+                    try:
+                        return DPOTrainer(**kwargs_copy), True
+                    except TypeError:
+                        pass
+            
+            # If it's about beta/max_length/max_prompt_length, try without them
+            if any(param in error_msg for param in ['beta', 'max_length', 'max_prompt_length']):
+                kwargs_copy = {k: v for k, v in kwargs.items() 
+                              if k not in ['beta', 'max_length', 'max_prompt_length']}
+                try:
+                    return DPOTrainer(**kwargs_copy), False
+                except TypeError:
+                    pass
+            
+            return None, False
+    
+    # Base kwargs that should work in most versions
+    base_kwargs = {
+        "model": model,
+        "ref_model": ref_model,
+        "args": training_args,
+        "train_dataset": train_dataset,
+        "peft_config": peft_config,
+    }
+    
+    if eval_dataset is not None:
+        base_kwargs["eval_dataset"] = eval_dataset
+    
+    # Try initialization with different parameter combinations
+    trainer = None
+    
+    # Attempt 1: Try with tokenizer (most common in older versions)
+    if not beta_in_config:
+        kwargs = {**base_kwargs, "tokenizer": tokenizer, 
+                 "beta": beta, "max_length": max_length, "max_prompt_length": max_prompt_length}
+        trainer, success = try_init_trainer(**kwargs)
+        if trainer:
+            print(f"Initialized DPOTrainer with beta={beta} (tokenizer parameter)")
+    
+    # Attempt 2: Try with processing_class (newer TRL)
+    if trainer is None and not beta_in_config:
+        kwargs = {**base_kwargs, "processing_class": tokenizer,
+                 "beta": beta, "max_length": max_length, "max_prompt_length": max_prompt_length}
+        trainer, success = try_init_trainer(**kwargs)
+        if trainer:
+            print(f"Initialized DPOTrainer with beta={beta} (processing_class parameter)")
+    
+    # Attempt 3: Beta already in config, try with tokenizer
+    if trainer is None and beta_in_config:
+        kwargs = {**base_kwargs, "tokenizer": tokenizer}
+        trainer, success = try_init_trainer(**kwargs)
+        if trainer:
+            print(f"Initialized DPOTrainer with DPOConfig (tokenizer parameter)")
+    
+    # Attempt 4: Beta already in config, try with processing_class
+    if trainer is None and beta_in_config:
+        kwargs = {**base_kwargs, "processing_class": tokenizer}
+        trainer, success = try_init_trainer(**kwargs)
+        if trainer:
+            print(f"Initialized DPOTrainer with DPOConfig (processing_class parameter)")
+    
+    # Attempt 5: No tokenizer parameter at all (some versions don't require it)
+    if trainer is None:
+        if not beta_in_config:
+            kwargs = {**base_kwargs, "beta": beta, "max_length": max_length, "max_prompt_length": max_prompt_length}
+        else:
+            kwargs = base_kwargs
+        trainer, success = try_init_trainer(**kwargs)
+        if trainer:
+            print(f"Initialized DPOTrainer (no tokenizer/processing_class parameter)")
+    
+    if trainer is None:
+        raise RuntimeError(
+            "Failed to initialize DPOTrainer with any parameter combination. "
+            "This may indicate an incompatible TRL version. "
+            f"Please try: pip install 'trl>=0.7.4,<0.12.0'"
+        )
     
     print("\n" + "="*60)
     print("STARTING TRAINING")
