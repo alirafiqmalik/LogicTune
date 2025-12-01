@@ -9,6 +9,7 @@ Reference: "Fine-Tuning Language Models Using Formal Methods Feedback"
 
 import torch
 import json
+import os
 from typing import List, Dict, Tuple, Optional
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from tqdm import tqdm
@@ -143,6 +144,24 @@ class ModelEvaluator:
             test_prompts = self.get_test_prompts()
         
         print(f"Loading model from {model_path}...")
+        
+        # Validate model path before loading
+        # Check if it's a HuggingFace model ID (contains "/" and doesn't exist locally)
+        is_hf_model = "/" in model_path and not os.path.exists(model_path)
+        
+        if not is_hf_model:
+            # Treat as local path - validate it exists
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(
+                    f"\n❌ Model directory '{model_path}' does not exist.\n"
+                    f"   Please train a model first using one of:\n"
+                    f"   - python main.py --mode train\n"
+                    f"   - python main.py --mode full\n"
+                    f"   Or specify the correct model path with --output"
+                )
+            if not os.path.isdir(model_path):
+                raise ValueError(f"Model path '{model_path}' is not a directory")
+        
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
