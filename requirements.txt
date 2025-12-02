@@ -4,7 +4,8 @@
 # VERSION COMPATIBILITY NOTES:
 # - Code is designed to work across TRL 0.7.4 - 0.12.x with auto-detection
 # - transformers >= 4.44 uses 'eval_strategy', older versions use 'evaluation_strategy'
-# - TRL API has evolved: tokenizer vs processing_class, beta parameter location, etc.
+# - TRL API has evolved: tokenizer vs processing_class, beta parameter location
+# - TRL >= 0.11: When using PEFT, ref_model should be None (auto-handled)
 # - Our implementation handles all these variations automatically
 
 # Deep Learning Framework

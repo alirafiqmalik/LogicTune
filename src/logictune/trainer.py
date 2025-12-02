@@ -173,14 +173,10 @@ def train_dpo(
         use_quantization=use_quantization
     )
     
-    print("Loading reference model for DPO...")
-    ref_model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        device_map="auto",
-        trust_remote_code=True,
-    )
-    ref_model.eval()
+    # Note: When using PEFT (LoRA), newer TRL versions automatically use the base model
+    # as reference, so we don't need to load a separate ref_model.
+    # We'll handle this in the DPOTrainer initialization.
+    ref_model = None  # Will be set conditionally based on TRL version requirements
     
     # Configure training arguments - try DPOConfig first for DPO-specific params
     training_args_dict = {
@@ -227,16 +223,34 @@ def train_dpo(
     # Check if beta is already in config (DPOConfig was used)
     beta_in_config = hasattr(training_args, 'beta')
     
-    # Try different parameter combinations for maximum compatibility
-    # Newer TRL: processing_class instead of tokenizer
-    # Older TRL: tokenizer, beta, max_length as direct params
+    # Try different parameter combinations for maximum compatibility across TRL versions
+    # 
+    # Key version differences:
+    # - Newer TRL (0.11+): processing_class instead of tokenizer, ref_model=None when using PEFT
+    # - Mid TRL (0.8-0.10): tokenizer parameter, may or may not need ref_model with PEFT
+    # - Older TRL (0.7.x): tokenizer, beta as params, needs ref_model even with PEFT
+    #
+    # PEFT + ref_model behavior:
+    # - Newer versions: When using peft_config, ref_model should be None (base model used automatically)
+    # - Older versions: ref_model required even with peft_config
     
     def try_init_trainer(**kwargs):
         """Try to initialize trainer with given kwargs, handling version differences"""
         try:
             return DPOTrainer(**kwargs), True
-        except TypeError as e:
+        except (TypeError, ValueError) as e:
             error_msg = str(e)
+            
+            # Handle PEFT + ref_model conflict (newer TRL)
+            if "ref_model" in error_msg and "peft_config" in error_msg:
+                if 'ref_model' in kwargs and kwargs['ref_model'] is not None:
+                    kwargs_copy = kwargs.copy()
+                    kwargs_copy['ref_model'] = None
+                    try:
+                        return DPOTrainer(**kwargs_copy), True
+                    except (TypeError, ValueError):
+                        pass
+            
             # Handle specific parameter issues
             if "'tokenizer'" in error_msg:
                 # Try with processing_class instead (newer TRL)
@@ -245,7 +259,7 @@ def train_dpo(
                     kwargs_copy['processing_class'] = kwargs_copy.pop('tokenizer')
                     try:
                         return DPOTrainer(**kwargs_copy), True
-                    except TypeError:
+                    except (TypeError, ValueError):
                         pass
             elif "'processing_class'" in error_msg:
                 # Try with tokenizer instead (older TRL)
@@ -254,7 +268,7 @@ def train_dpo(
                     kwargs_copy['tokenizer'] = kwargs_copy.pop('processing_class')
                     try:
                         return DPOTrainer(**kwargs_copy), True
-                    except TypeError:
+                    except (TypeError, ValueError):
                         pass
             
             # If it's about beta/max_length/max_prompt_length, try without them
@@ -263,15 +277,15 @@ def train_dpo(
                               if k not in ['beta', 'max_length', 'max_prompt_length']}
                 try:
                     return DPOTrainer(**kwargs_copy), False
-                except TypeError:
+                except (TypeError, ValueError):
                     pass
             
             return None, False
     
-    # Base kwargs that should work in most versions
+    # Base kwargs - start with ref_model=None for PEFT compatibility (newer TRL)
     base_kwargs = {
         "model": model,
-        "ref_model": ref_model,
+        "ref_model": ref_model,  # None by default for PEFT
         "args": training_args,
         "train_dataset": train_dataset,
         "peft_config": peft_config,
@@ -283,37 +297,59 @@ def train_dpo(
     # Try initialization with different parameter combinations
     trainer = None
     
-    # Attempt 1: Try with tokenizer (most common in older versions)
+    # Attempt 1: Try with processing_class and no ref_model (newest TRL with PEFT)
     if not beta_in_config:
-        kwargs = {**base_kwargs, "tokenizer": tokenizer, 
-                 "beta": beta, "max_length": max_length, "max_prompt_length": max_prompt_length}
-        trainer, success = try_init_trainer(**kwargs)
-        if trainer:
-            print(f"Initialized DPOTrainer with beta={beta} (tokenizer parameter)")
-    
-    # Attempt 2: Try with processing_class (newer TRL)
-    if trainer is None and not beta_in_config:
         kwargs = {**base_kwargs, "processing_class": tokenizer,
                  "beta": beta, "max_length": max_length, "max_prompt_length": max_prompt_length}
         trainer, success = try_init_trainer(**kwargs)
         if trainer:
-            print(f"Initialized DPOTrainer with beta={beta} (processing_class parameter)")
+            print(f"Initialized DPOTrainer with beta={beta} (processing_class, PEFT mode)")
     
-    # Attempt 3: Beta already in config, try with tokenizer
-    if trainer is None and beta_in_config:
-        kwargs = {**base_kwargs, "tokenizer": tokenizer}
+    # Attempt 2: Try with tokenizer and no ref_model (older TRL with PEFT)
+    if trainer is None and not beta_in_config:
+        kwargs = {**base_kwargs, "tokenizer": tokenizer, 
+                 "beta": beta, "max_length": max_length, "max_prompt_length": max_prompt_length}
         trainer, success = try_init_trainer(**kwargs)
         if trainer:
-            print(f"Initialized DPOTrainer with DPOConfig (tokenizer parameter)")
+            print(f"Initialized DPOTrainer with beta={beta} (tokenizer, PEFT mode)")
     
-    # Attempt 4: Beta already in config, try with processing_class
+    # Attempt 3: Beta already in config, try with processing_class
     if trainer is None and beta_in_config:
         kwargs = {**base_kwargs, "processing_class": tokenizer}
         trainer, success = try_init_trainer(**kwargs)
         if trainer:
-            print(f"Initialized DPOTrainer with DPOConfig (processing_class parameter)")
+            print(f"Initialized DPOTrainer with DPOConfig (processing_class, PEFT mode)")
     
-    # Attempt 5: No tokenizer parameter at all (some versions don't require it)
+    # Attempt 4: Beta already in config, try with tokenizer
+    if trainer is None and beta_in_config:
+        kwargs = {**base_kwargs, "tokenizer": tokenizer}
+        trainer, success = try_init_trainer(**kwargs)
+        if trainer:
+            print(f"Initialized DPOTrainer with DPOConfig (tokenizer, PEFT mode)")
+    
+    # Attempt 5: Try loading ref_model for older TRL that needs it even with PEFT
+    if trainer is None and ref_model is None:
+        print("Loading reference model (required by TRL version)...")
+    ref_model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+        device_map="auto",
+        trust_remote_code=True,
+    )
+    ref_model.eval()
+        base_kwargs["ref_model"] = ref_model
+        
+        # Try with ref_model + tokenizer
+        if not beta_in_config:
+            kwargs = {**base_kwargs, "tokenizer": tokenizer,
+                     "beta": beta, "max_length": max_length, "max_prompt_length": max_prompt_length}
+        else:
+            kwargs = {**base_kwargs, "tokenizer": tokenizer}
+        trainer, success = try_init_trainer(**kwargs)
+        if trainer:
+            print(f"Initialized DPOTrainer with ref_model (older TRL version)")
+    
+    # Attempt 6: No tokenizer parameter at all
     if trainer is None:
         if not beta_in_config:
             kwargs = {**base_kwargs, "beta": beta, "max_length": max_length, "max_prompt_length": max_prompt_length}
@@ -321,14 +357,14 @@ def train_dpo(
             kwargs = base_kwargs
         trainer, success = try_init_trainer(**kwargs)
         if trainer:
-            print(f"Initialized DPOTrainer (no tokenizer/processing_class parameter)")
+            print(f"Initialized DPOTrainer (minimal parameters)")
     
     if trainer is None:
         raise RuntimeError(
             "Failed to initialize DPOTrainer with any parameter combination. "
             "This may indicate an incompatible TRL version. "
             f"Please try: pip install 'trl>=0.7.4,<0.12.0'"
-        )
+    )
     
     print("\n" + "="*60)
     print("STARTING TRAINING")
