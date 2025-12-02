@@ -330,13 +330,13 @@ def train_dpo(
     # Attempt 5: Try loading ref_model for older TRL that needs it even with PEFT
     if trainer is None and ref_model is None:
         print("Loading reference model (required by TRL version)...")
-    ref_model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        device_map="auto",
-        trust_remote_code=True,
-    )
-    ref_model.eval()
+        ref_model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+            device_map="auto",
+            trust_remote_code=True,
+        )
+        ref_model.eval()
         base_kwargs["ref_model"] = ref_model
         
         # Try with ref_model + tokenizer
