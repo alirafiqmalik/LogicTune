@@ -35,6 +35,14 @@ from .iterative_trainer import (
     iterative_training,
     iterative_training_with_curriculum
 )
+from .visualizer import (
+    TrainingVisualizer,
+    generate_sample_data_for_testing
+)
+from .training_tracker import (
+    DPOMetricsCallback,
+    create_visualization_callback
+)
 
 __version__ = "1.0.0"
 
@@ -59,5 +67,9 @@ __all__ = [
     "evaluate_model_simple",
     "iterative_training",
     "iterative_training_with_curriculum",
+    "TrainingVisualizer",
+    "generate_sample_data_for_testing",
+    "DPOMetricsCallback",
+    "create_visualization_callback",
 ]
 

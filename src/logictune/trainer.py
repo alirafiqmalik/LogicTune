@@ -173,6 +173,22 @@ def train_dpo(
         use_quantization=use_quantization
     )
     
+    # Create callback for tracking training metrics and specification satisfaction
+    from .training_tracker import create_visualization_callback
+    
+    eval_prompts = [
+        "Generate a step-by-step controller for safely navigating a traffic intersection.",
+        "Describe a control policy for an autonomous vehicle at a traffic light.",
+        "Write steps for safe driving through an intersection with traffic signals."
+    ]
+    
+    metrics_callback = create_visualization_callback(
+        output_dir=output_dir,
+        tokenizer=tokenizer,
+        model_name=model_name,
+        eval_prompts=eval_prompts
+    )
+    
     # Note: When using PEFT (LoRA), newer TRL versions automatically use the base model
     # as reference, so we don't need to load a separate ref_model.
     # We'll handle this in the DPOTrainer initialization.
@@ -289,6 +305,7 @@ def train_dpo(
         "args": training_args,
         "train_dataset": train_dataset,
         "peft_config": peft_config,
+        "callbacks": [metrics_callback],  # Add metrics tracking callback
     }
     
     if eval_dataset is not None:

@@ -25,6 +25,12 @@ python reproduce_paper.py
 ```
 This runs the complete pipeline and shows improvement in specification satisfaction rate (60% → 90% as reported in paper).
 
+### Generate Visualization (No Training Required)
+```bash
+python visualize_training.py --demo
+```
+Creates sample plots showing Loss, Accuracy, Marginal Preference, and specification satisfaction analysis.
+
 ### Run Demo (No GPU Required)
 ```bash
 python src/tests/demo.py
@@ -61,6 +67,13 @@ python main.py --mode evaluate
 ```bash
 python main.py --mode iterative --num-iterations 3
 ```
+
+**7. Visualize Training Results**
+```bash
+# After training, generate visualization plots
+python visualize_training.py --metrics dpo_model/training_metrics.json --eval evaluation_results.json
+```
+
 
 **Run All Steps**
 ```bash
@@ -144,13 +157,28 @@ LogicTune/
 3. **Formal Verification**: Each response scored via model checking (0-3 points)
 4. **Preference Pairs**: Create (chosen, rejected) pairs based on scores
 5. **DPO Training**: Fine-tune model to prefer high-scoring (safe) responses
-6. **Evaluation**: Compare base vs fine-tuned models on specification satisfaction rate
-7. **Iterative Refinement**: Optional multi-iteration training for continuous improvement
+6. **Metrics Tracking**: Automatic logging of loss, accuracy, marginal preference, and spec satisfaction
+7. **Evaluation**: Compare base vs fine-tuned models on specification satisfaction rate
+8. **Visualization**: Generate plots for training analysis and paper figures
+9. **Iterative Refinement**: Optional multi-iteration training for continuous improvement
+
+## Visualization Features
+
+LogicTune includes comprehensive visualization tools for analyzing training:
+
+### Three Main Plot Types
+
+1. **Training Metrics Line Charts** - Loss, Accuracy, Marginal Preference over 200 epochs with shaded error bands
+2. **Box and Whisker Plot** - Specification satisfaction distribution vs training epoch
+3. **Grouped Bar Chart** - Per-specification satisfaction rates (Base vs Fine-Tuned)
+
+All metrics are automatically tracked during training.
 
 ## Requirements
 
 - Python 3.8+
 - PyTorch 2.0+
+- Matplotlib 3.5+ and Seaborn 0.12+ (for visualization)
 - GPU recommended for training (CPU works for demo/verification)
 
 ## Citation
