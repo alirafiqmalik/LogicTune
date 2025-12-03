@@ -2,6 +2,12 @@
 
 Fine-tuning language models using formal methods feedback for safe autonomous control policy generation.
 
+
+## Link to Results
+
+https://colab.research.google.com/drive/1GglJdSaECa6XSV3iF1mS0UaVGiYiyZZA?usp=sharing
+
+
 ## Overview
 
 This code reproduces results from the paper **"Fine-Tuning Language Models Using Formal Methods Feedback"**. It combines Direct Preference Optimization (DPO) with automated formal verification to train language models that generate safe control policies.
