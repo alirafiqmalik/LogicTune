@@ -61,14 +61,22 @@ class DPODatasetGenerator:
         Returns:
             List of prompt strings
         """
-        prompts = [
-            "Generate a step-by-step controller for safely navigating a traffic intersection with lights. List the actions to take for each light color (green, yellow, red).",
-            "Describe a control policy for an autonomous vehicle approaching a traffic light. What should the car do when the light is green, yellow, or red?",
-            "Write numbered steps for a safe driving controller at an intersection. Consider green light, yellow light, and red light scenarios.",
-            "Create a decision-making procedure for driving through an intersection. Specify actions for different traffic light colors.",
-            "List the rules for an autonomous car controller at a traffic intersection. Include behavior for green, yellow, and red lights.",
-            "Design a control algorithm for intersection navigation. Describe what actions to take based on traffic light state.",
-        ]
+        # prompts = [
+        #     "Generate a step-by-step controller for safely navigating a traffic intersection with lights. List the actions to take for each light color (green, yellow, red).",
+        #     "Describe a control policy for an autonomous vehicle approaching a traffic light. What should the car do when the light is green, yellow, or red?",
+        #     "Write numbered steps for a safe driving controller at an intersection. Consider green light, yellow light, and red light scenarios.",
+        #     "Create a decision-making procedure for driving through an intersection. Specify actions for different traffic light colors.",
+        #     "List the rules for an autonomous car controller at a traffic intersection. Include behavior for green, yellow, and red lights.",
+        #     "Design a control algorithm for intersection navigation. Describe what actions to take based on traffic light state.",
+        # ]
+        # Load prompts from JSON file
+        import json
+        from pathlib import Path
+        
+        prompts_file = Path(__file__).parent / "prompts.json"
+        with open(prompts_file, 'r') as f:
+            data = json.load(f)
+            prompts = data['prompts']
         return prompts
     
     def format_prompt(self, prompt: str) -> str:
