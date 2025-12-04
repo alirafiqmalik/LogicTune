@@ -1,4 +1,5 @@
-prompts = [
+{
+  "prompts" : [
   "Describe, step by step, how an autonomous driving controller should safely handle the following situation: {scenario}. Focus on right-of-way and pedestrian safety.",
   "List the ordered actions a cautious driver should take in {scenario}, including when to stop, yield, and proceed.",
   "Explain a safe driving procedure for {scenario}, detailing perception checks, decision points, and control actions.",
@@ -90,3 +91,4 @@ prompts = [
   "Explain how to encode {scenario} as a control problem where the goal is to complete the maneuver without violating any safety constraints, and list the resulting steps.",
   "Write a compact but precise sequence of actions that a self-driving car must follow to handle {scenario} in compliance with typical traffic rules."
 ]
+}
