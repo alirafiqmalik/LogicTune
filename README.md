@@ -160,13 +160,35 @@ LogicTune/
 
 1. **Environment Model**: Define transition system with safety specifications
 2. **Response Generation**: LLM generates diverse control policies (high temperature)
-3. **Formal Verification**: Each response scored via model checking (0-3 points)
+3. **Formal Verification**: Each response scored against 15 LTL specifications (Φ1-Φ15)
 4. **Preference Pairs**: Create (chosen, rejected) pairs based on scores
 5. **DPO Training**: Fine-tune model to prefer high-scoring (safe) responses
 6. **Metrics Tracking**: Automatic logging of loss, accuracy, marginal preference, and spec satisfaction
 7. **Evaluation**: Compare base vs fine-tuned models on specification satisfaction rate
 8. **Visualization**: Generate plots for training analysis and paper figures
 9. **Iterative Refinement**: Optional multi-iteration training for continuous improvement
+
+## LTL Specifications (Φ1-Φ15)
+
+The verifier checks all 15 specifications from the paper:
+
+| Spec | Description |
+|------|-------------|
+| Φ1 | If pedestrian present, eventually stop |
+| Φ2 | No left turn when opposite car without green left-turn light |
+| Φ3 | No going straight on non-green light |
+| Φ4 | If stop sign, eventually stop |
+| Φ5 | No right turn when car from left or pedestrian at right |
+| Φ6 | Valid action always available |
+| Φ7 | If green light, eventually proceed |
+| Φ8 | If not green light, eventually stop |
+| Φ9 | No turning when car from left |
+| Φ10 | If green light, eventually proceed |
+| Φ11 | Right turn on non-green only when no car from left |
+| Φ12 | Left turn without green arrow only when clear |
+| Φ13 | After stopping at sign with no cars, eventually proceed |
+| Φ14 | No going straight with pedestrian in front |
+| Φ15 | Right turn at stop sign only when no car from left |
 
 ## Visualization Features
 

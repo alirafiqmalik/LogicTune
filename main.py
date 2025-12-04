@@ -68,7 +68,7 @@ def demo_verification_pipeline():
         # Score with formal verification
         score, results = score_response(system, controller_fsa, verbose=True)
         
-        print(f"\nFinal Score: {score}/15\n")
+        print(f"\nFinal Score: {score}/15 specifications satisfied\n")
 
 
 def generate_training_dataset(

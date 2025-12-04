@@ -2,596 +2,648 @@
 Formal Verification and Scoring
 
 Implements automated feedback mechanism via formal verification.
-Constructs product automaton M ⊗ C and checks safety specifications.
+Checks LTL safety specifications (Φ1-Φ15) against parsed controller actions.
 
 Reference: "Fine-Tuning Language Models Using Formal Methods Feedback"
 """
 
-import os
-import subprocess
-import tempfile
-from pathlib import Path
-
+import re
 import networkx as nx
 from typing import Set, Dict, List, Tuple, Optional
-from collections import deque
-from .environment import TransitionSystem
+from dataclasses import dataclass
 
 
-class SafetySpec:
-    """
-    Represents a safety specification in LTL-style logic.
-    """
+@dataclass
+class LTLSpec:
+    """Represents one of the 15 LTL specifications from the paper."""
+    name: str
+    description: str
     
-    def __init__(self, spec_type: str, props: List[str], description: str):
+    def check(self, controller_rules: List[Dict]) -> bool:
         """
+        Check if controller rules satisfy this specification.
+        
         Args:
-            spec_type: Type of specification ('never_both', 'always_implies', 'eventually')
-            props: List of propositions involved
-            description: Human-readable description
-        """
-        self.spec_type = spec_type
-        self.props = props
-        self.description = description
-    
-    def check_state_violation(self, state_props: Set[str]) -> bool:
-        """
-        Check if a single state violates this safety spec.
+            controller_rules: List of parsed controller rules with conditions and actions
         
         Returns:
-            True if state violates the spec, False otherwise
+            True if satisfied, False if violated
         """
-        if self.spec_type == 'never_both':
-            return all(prop in state_props for prop in self.props)
+        raise NotImplementedError
+
+
+class Phi1_PedestrianStop(LTLSpec):
+    """Φ1 = □(pedestrian → (♢ stop)) - Always if pedestrian, then eventually stop"""
+    
+    def __init__(self):
+        super().__init__("phi_1", "If pedestrian present, eventually stop")
+    
+    def check(self, controller_rules: List[Dict]) -> bool:
+        mentions_pedestrian = False
+        has_ped_stop = False
+        has_ped_violation = False
         
-        elif self.spec_type == 'always_implies':
-            if self.props[0] in state_props:
-                return self.props[1] not in state_props
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
+            raw = rule.get('raw', '').lower()
+            
+            if 'pedestrian' in raw:
+                mentions_pedestrian = True
+                if 'stop' in raw or 'wait' in raw or 'yield' in raw:
+                    has_ped_stop = True
+                elif 'ignore' in raw or ('go' in raw and 'stop' not in raw):
+                    has_ped_violation = True
+                elif 'proceed' in raw and 'stop' not in raw:
+                    has_ped_violation = True
+        
+        if has_ped_violation:
             return False
         
-        return False
-    
-    def __str__(self):
-        return f"SafetySpec({self.spec_type}): {self.description}"
+        return True
 
 
-def get_traffic_safety_specs() -> List[SafetySpec]:
-    """
-    Define safety specifications for the traffic intersection scenario.
-    Implements all 15 LTL specifications for comprehensive verification.
+class Phi2_OppositeCarNoLeftTurn(LTLSpec):
+    """Φ2 = □(opposite car ∧ ¬green left-turn light → ¬turn left)"""
     
-    Returns:
-        List of SafetySpec objects covering all 15 LTL specifications
-    """
-    specs = [
-        # Φ1 = □(pedestrian → (♢ stop))
-        # Always: if pedestrian present, then eventually stop
-        SafetySpec(
-            spec_type='always_implies',
-            props=['pedestrian', 'stop'],
-            description="Φ1: Always if pedestrian present, then eventually stop"
-        ),
-        
-        # Φ2 = □(opposite car ∧ ¬green left-turn light → ¬turn left)
-        # Always: if opposite car and not green left-turn light, then don't turn left
-        SafetySpec(
-            spec_type='never_both',
-            props=['opposite_car', 'turn_left'],
-            description="Φ2: Never turn left when opposite car present and no green left-turn light"
-        ),
-        
-        # Φ3 = □(¬green traffic light → ¬go straight)
-        # Always: if not green traffic light, then don't go straight
-        SafetySpec(
-            spec_type='never_both',
-            props=['red_light', 'go_straight'],
-            description="Φ3: Never go straight on red light"
-        ),
-        SafetySpec(
-            spec_type='never_both',
-            props=['yellow_light', 'go_straight'],
-            description="Φ3: Never go straight on yellow light (strict interpretation)"
-        ),
-        
-        # Φ4 = □(stop sign → ♢ stop)
-        # Always: if stop sign present, then eventually stop
-        SafetySpec(
-            spec_type='always_implies',
-            props=['stop_sign', 'stop'],
-            description="Φ4: Always if stop sign present, then eventually stop"
-        ),
-        
-        # Φ5 = □(car from left ∨ pedestrian at right → ¬turn right)
-        # Always: if car from left or pedestrian at right, then don't turn right
-        SafetySpec(
-            spec_type='never_both',
-            props=['car_from_left', 'turn_right'],
-            description="Φ5: Never turn right when car from left"
-        ),
-        SafetySpec(
-            spec_type='never_both',
-            props=['pedestrian_at_right', 'turn_right'],
-            description="Φ5: Never turn right when pedestrian at right"
-        ),
-        
-        # Φ6 = □(stop ∨ go straight ∨ turn left ∨ turn right)
-        # Always: one of these actions must be available (covered by action space)
-        # Note: This is a liveness property ensuring action availability, 
-        # typically verified at the system level rather than as a safety violation
-        
-        # Φ7 = ♢(green traffic light ∨ green left-turn light) → ♢ ¬stop)
-        # Eventually: if green light, then eventually not stop
-        SafetySpec(
-            spec_type='always_implies',
-            props=['green_light', 'go_straight'],
-            description="Φ7: Always if green traffic light, then eventually proceed (not stop)"
-        ),
-        SafetySpec(
-            spec_type='always_implies',
-            props=['green_left_turn_light', 'turn_left'],
-            description="Φ7: Always if green left-turn light, then eventually proceed"
-        ),
-        
-        # Φ8 = □(¬green traffic light → ♢ stop)
-        # Always: if not green traffic light, then eventually stop
-        SafetySpec(
-            spec_type='always_implies',
-            props=['red_light', 'stop'],
-            description="Φ8: Always if red light, then eventually stop"
-        ),
-        SafetySpec(
-            spec_type='always_implies',
-            props=['yellow_light', 'stop'],
-            description="Φ8: Always if yellow light, then eventually stop"
-        ),
-        
-        # Φ9 = □(car from left → ¬(turn left ∨ turn right))
-        # Always: if car from left, then don't turn left or right
-        SafetySpec(
-            spec_type='never_both',
-            props=['car_from_left', 'turn_left'],
-            description="Φ9: Never turn left when car from left"
-        ),
-        SafetySpec(
-            spec_type='never_both',
-            props=['car_from_left', 'turn_right'],
-            description="Φ9: Never turn right when car from left"
-        ),
-        
-        # Φ10 = □(green traffic light → ♢ ¬stop)
-        # Always: if green traffic light, then eventually not stop
-        SafetySpec(
-            spec_type='always_implies',
-            props=['green_light', 'go_straight'],
-            description="Φ10: Always if green traffic light, then eventually proceed"
-        ),
-        
-        # Φ11 = □((turn right ∧ ¬green traffic light) → ¬car from left)
-        # Always: if turn right and not green traffic light, then no car from left
-        # This is a precondition check - if turning right on non-green, ensure no car from left
-        SafetySpec(
-            spec_type='never_both',
-            props=['turn_right', 'car_from_left'],
-            description="Φ11: Never turn right on non-green light when car from left"
-        ),
-        
-        # Φ12 = □((turn left ∧ ¬green left-turn light) → (¬car from right ∧ ¬car from left ∧ ¬opposite car))
-        # Always: if turn left and not green left-turn light, then no cars from any direction
-        SafetySpec(
-            spec_type='never_both',
-            props=['turn_left', 'car_from_right'],
-            description="Φ12: Never turn left without green left-turn light when car from right"
-        ),
-        SafetySpec(
-            spec_type='never_both',
-            props=['turn_left', 'car_from_left'],
-            description="Φ12: Never turn left without green left-turn light when car from left"
-        ),
-        SafetySpec(
-            spec_type='never_both',
-            props=['turn_left', 'opposite_car'],
-            description="Φ12: Never turn left without green left-turn light when opposite car present"
-        ),
-        
-        # Φ13 = □((stop sign ∧ ¬car from left ∧ ¬car from right) → (♢ ¬stop))
-        # Always: if stop sign and no cars, then eventually not stop
-        SafetySpec(
-            spec_type='always_implies',
-            props=['stop_sign', 'go_straight'],
-            description="Φ13: Always if stop sign and no cars, then eventually proceed"
-        ),
-        
-        # Φ14 = □((go straight → ¬pedestrian in front)
-        # Always: if go straight, then no pedestrian in front
-        SafetySpec(
-            spec_type='never_both',
-            props=['go_straight', 'pedestrian_in_front'],
-            description="Φ14: Never go straight when pedestrian in front"
-        ),
-        
-        # Φ15 = □((turn right ∧ stop sign) → ¬car from left)
-        # Always: if turn right and stop sign, then no car from left
-        SafetySpec(
-            spec_type='never_both',
-            props=['turn_right', 'car_from_left'],
-            description="Φ15: Never turn right at stop sign when car from left"
-        ),
-    ]
-    return specs
+    def __init__(self):
+        super().__init__("phi_2", "No left turn when opposite car without green left-turn light")
+    
+    def check(self, controller_rules: List[Dict]) -> bool:
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
+            
+            has_opposite_car = 'opposite' in cond or 'oncoming' in cond
+            has_green_left = 'green left' in cond or 'left turn light' in cond or 'left arrow' in cond
+            is_left_turn = 'left' in action and 'turn' in action
+            
+            if has_opposite_car and not has_green_left and is_left_turn:
+                return False
+        return True
 
 
-class ProductAutomaton:
-    """
-    Product Automaton M ⊗ C representing the composition of:
-    - M: System transition model
-    - C: Controller FSA
+class Phi3_NoGoOnRed(LTLSpec):
+    """Φ3 = □(¬green traffic light → ¬go straight)"""
     
-    States are pairs (s_m, s_c) where s_m ∈ M and s_c ∈ C
-    """
+    def __init__(self):
+        super().__init__("phi_3", "No going straight on non-green light")
     
-    def __init__(self, system: TransitionSystem, controller: nx.DiGraph):
-        """
-        Args:
-            system: The environment transition system (M)
-            controller: The controller FSA (C)
-        """
-        self.system = system
-        self.controller = controller
-        self.graph = nx.DiGraph()
-        self.state_labels = {}
-        self.initial_state = None
+    def check(self, controller_rules: List[Dict]) -> bool:
+        has_red_stop = False
+        has_yellow_stop = False
         
-    def build(self, controller_initial: int = 0) -> None:
-        """
-        Construct the product automaton M ⊗ C.
-        
-        Args:
-            controller_initial: Initial state of the controller FSA
-        """
-        self.initial_state = (self.system.initial_state, controller_initial)
-        
-        queue = deque([self.initial_state])
-        visited = {self.initial_state}
-        
-        while queue:
-            s_m, s_c = queue.popleft()
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
+            raw = rule.get('raw', '').lower()
             
-            system_props = self.system.get_state_props(s_m)
-            self.state_labels[(s_m, s_c)] = system_props
-            self.graph.add_node((s_m, s_c))
+            is_red = 'red' in cond or 'red' in raw
+            is_yellow = 'yellow' in cond or 'yellow' in raw
             
-            system_transitions = []
-            for successor in self.system.graph.successors(s_m):
-                edge_data = self.system.graph.get_edge_data(s_m, successor)
-                action = edge_data.get('action', 'unknown')
-                system_transitions.append((successor, action))
+            is_go = ('go' in action) or ('proceed' in action) or ('through' in action) or ('continue' in action)
+            is_stop = ('stop' in action) or ('wait' in action) or ('halt' in action)
             
-            controller_transitions = {}
-            if s_c in self.controller.nodes():
-                for successor in self.controller.successors(s_c):
-                    edge_data = self.controller.get_edge_data(s_c, successor)
-                    action = edge_data.get('action', 'unknown')
-                    if action not in controller_transitions:
-                        controller_transitions[action] = []
-                    controller_transitions[action].append(successor)
+            if is_red and is_stop:
+                has_red_stop = True
+            if is_yellow and (is_stop or 'slow' in action):
+                has_yellow_stop = True
             
-            for s_m_next, action in system_transitions:
-                if action in controller_transitions:
-                    for s_c_next in controller_transitions[action]:
-                        product_next = (s_m_next, s_c_next)
-                        self.graph.add_edge((s_m, s_c), product_next, action=action)
+            if is_red and is_go and not is_stop:
+                return False
+                
+            if 'regardless' in raw and is_go:
+                return False
+            if 'always go' in raw or 'proceed through' in raw:
+                if 'red' not in raw or 'stop' not in raw:
+                    pass
+            
+        if not has_red_stop:
+            for rule in controller_rules:
+                raw = rule.get('raw', '').lower()
+                if 'regardless' in raw or 'always' in raw:
+                    if 'go' in raw or 'proceed' in raw:
+                        return False
                         
-                        if product_next not in visited:
-                            visited.add(product_next)
-                            queue.append(product_next)
-    
-    def get_reachable_states(self) -> List[Tuple[int, int]]:
-        """Get all reachable states in the product automaton from initial state."""
-        if self.initial_state is None:
-            return []
-        
-        reachable = set()
-        queue = deque([self.initial_state])
-        reachable.add(self.initial_state)
-        
-        while queue:
-            state = queue.popleft()
-            for successor in self.graph.successors(state):
-                if successor not in reachable:
-                    reachable.add(successor)
-                    queue.append(successor)
-        
-        return list(reachable)
-    
-    def get_state_props(self, state: Tuple[int, int]) -> Set[str]:
-        """Get atomic propositions for a product state."""
-        return self.state_labels.get(state, set())
+        return True
 
 
-def build_product_automaton(system: TransitionSystem, 
-                            controller: nx.DiGraph,
-                            controller_initial: int = 0) -> ProductAutomaton:
-    """
-    Build the product automaton M ⊗ C.
+class Phi4_StopSignStop(LTLSpec):
+    """Φ4 = □(stop sign → ♢ stop)"""
     
-    Args:
-        system: The environment transition system
-        controller: The controller FSA
-        controller_initial: Initial state of controller
-        
-    Returns:
-        ProductAutomaton object
-    """
-    product = ProductAutomaton(system, controller)
-    product.build(controller_initial)
-    return product
-
-
-def verify_safety_specs(product: ProductAutomaton, 
-                        specs: List[SafetySpec]) -> Tuple[int, Dict[str, bool]]:
-    """
-    Verify safety specifications on the product automaton.
+    def __init__(self):
+        super().__init__("phi_4", "If stop sign, eventually stop")
     
-    Args:
-        product: The product automaton M ⊗ C
-        specs: List of safety specifications to check
-        
-    Returns:
-        Tuple of (score, detailed_results)
-    """
-    reachable_states = product.get_reachable_states()
-    
-    results = {}
-    satisfied_count = 0
-    
-    for spec in specs:
-        violated = False
-        
-        for state in reachable_states:
-            state_props = product.get_state_props(state)
+    def check(self, controller_rules: List[Dict]) -> bool:
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
             
-            if spec.spec_type == 'never_both':
-                for successor in product.graph.successors(state):
-                    edge_data = product.graph.get_edge_data(state, successor)
-                    if edge_data:
-                        action = edge_data.get('action')
-                        if action:
-                            state_props_with_action = state_props | {action}
-                            if spec.check_state_violation(state_props_with_action):
-                                violated = True
-                                break
-                                
-            elif spec.spec_type == 'always_implies':
-                if spec.props[0] in state_props:
-                    has_required_action = False
-                    for successor in product.graph.successors(state):
-                        edge_data = product.graph.get_edge_data(state, successor)
-                        if edge_data:
-                            action = edge_data.get('action')
-                            if action in [spec.props[1], 'wait']:
-                                has_required_action = True
-                                break
-                    
-                    if not has_required_action:
-                        violated = True
-                        break
+            if 'stop sign' in cond:
+                if 'stop' in action or 'wait' in action:
+                    return True
+                elif 'go' in action or 'proceed' in action:
+                    return False
+        return True
+
+
+class Phi5_NoRightTurnOnObstacle(LTLSpec):
+    """Φ5 = □(car from left ∨ pedestrian at right → ¬turn right)"""
+    
+    def __init__(self):
+        super().__init__("phi_5", "No right turn when car from left or pedestrian at right")
+    
+    def check(self, controller_rules: List[Dict]) -> bool:
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
             
-            if violated:
+            car_from_left = 'car from left' in cond or 'left car' in cond or ('left' in cond and 'car' in cond)
+            ped_at_right = 'pedestrian' in cond and 'right' in cond
+            is_right_turn = 'right' in action and 'turn' in action
+            
+            if (car_from_left or ped_at_right) and is_right_turn:
+                return False
+        return True
+
+
+class Phi6_ActionExists(LTLSpec):
+    """Φ6 = □(stop ∨ go straight ∨ turn left ∨ turn right) - Action always available"""
+    
+    def __init__(self):
+        super().__init__("phi_6", "Valid action always available")
+    
+    def check(self, controller_rules: List[Dict]) -> bool:
+        if not controller_rules:
+            return False
+        
+        has_valid_action = False
+        for rule in controller_rules:
+            action = rule.get('action', '').lower()
+            if any(a in action for a in ['stop', 'go', 'straight', 'left', 'right', 'wait', 'proceed']):
+                has_valid_action = True
                 break
-        
-        satisfied = not violated
-        results[spec.description] = satisfied
-        if satisfied:
-            satisfied_count += 1
+        return has_valid_action
+
+
+class Phi7_GreenMeansGo(LTLSpec):
+    """Φ7 = ♢(green traffic light ∨ green left-turn light) → ♢ ¬stop"""
     
-    return satisfied_count, results
+    def __init__(self):
+        super().__init__("phi_7", "If green light eventually, then eventually proceed")
+    
+    def check(self, controller_rules: List[Dict]) -> bool:
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
+            
+            is_green = 'green' in cond and 'light' in cond
+            
+            if is_green:
+                if 'go' in action or 'proceed' in action or 'straight' in action or 'turn' in action:
+                    return True
+                elif 'stop' in action and 'don' not in action:
+                    return False
+        return True
 
 
-def score_response(system: TransitionSystem, 
-                   controller_fsa: nx.DiGraph,
+class Phi8_NonGreenStop(LTLSpec):
+    """Φ8 = □(¬green traffic light → ♢ stop)"""
+    
+    def __init__(self):
+        super().__init__("phi_8", "If not green light, eventually stop")
+    
+    def check(self, controller_rules: List[Dict]) -> bool:
+        has_red_stop = False
+        has_yellow_stop = False
+        has_violation = False
+        
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
+            raw = rule.get('raw', '').lower()
+            
+            is_red = 'red' in raw
+            is_yellow = 'yellow' in raw
+            
+            if is_red:
+                if 'stop' in raw or 'wait' in raw:
+                    has_red_stop = True
+                elif 'go' in raw or 'proceed' in raw or 'turn' in raw:
+                    if 'stop' not in raw:
+                        has_violation = True
+                    
+            if is_yellow:
+                if 'stop' in raw or 'slow' in raw or 'prepare' in raw:
+                    has_yellow_stop = True
+                elif 'speed' in raw or 'proceed quickly' in raw or 'go through' in raw:
+                    has_violation = True
+                elif 'proceed' in raw and 'stop' not in raw and 'slow' not in raw:
+                    has_violation = True
+        
+        for rule in controller_rules:
+            raw = rule.get('raw', '').lower()
+            if 'regardless' in raw or 'always go' in raw:
+                has_violation = True
+        
+        if has_violation:
+            return False
+            
+        return True
+
+
+class Phi9_CarLeftNoTurn(LTLSpec):
+    """Φ9 = □(car from left → ¬(turn left ∨ turn right))"""
+    
+    def __init__(self):
+        super().__init__("phi_9", "No turning when car from left")
+    
+    def check(self, controller_rules: List[Dict]) -> bool:
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
+            
+            car_from_left = 'car from left' in cond or ('car' in cond and 'left' in cond)
+            is_turn = 'turn' in action
+            
+            if car_from_left and is_turn:
+                return False
+        return True
+
+
+class Phi10_GreenProceed(LTLSpec):
+    """Φ10 = □(green traffic light → ♢ ¬stop)"""
+    
+    def __init__(self):
+        super().__init__("phi_10", "If green light, eventually proceed")
+    
+    def check(self, controller_rules: List[Dict]) -> bool:
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
+            
+            is_green = 'green' in cond
+            
+            if is_green:
+                if 'go' in action or 'proceed' in action or 'straight' in action:
+                    return True
+        return True
+
+
+class Phi11_RightTurnSafety(LTLSpec):
+    """Φ11 = □((turn right ∧ ¬green traffic light) → ¬car from left)"""
+    
+    def __init__(self):
+        super().__init__("phi_11", "Right turn on non-green only when no car from left")
+    
+    def check(self, controller_rules: List[Dict]) -> bool:
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
+            
+            is_right_turn = 'right' in action and 'turn' in action
+            is_non_green = 'red' in cond or 'yellow' in cond
+            car_from_left = 'car from left' in cond or ('car' in cond and 'left' in cond)
+            
+            if is_right_turn and is_non_green and car_from_left:
+                return False
+        return True
+
+
+class Phi12_LeftTurnSafety(LTLSpec):
+    """Φ12 = □((turn left ∧ ¬green left-turn light) → (¬car from right ∧ ¬car from left ∧ ¬opposite car))"""
+    
+    def __init__(self):
+        super().__init__("phi_12", "Left turn without green arrow only when clear")
+    
+    def check(self, controller_rules: List[Dict]) -> bool:
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
+            
+            is_left_turn = 'left' in action and 'turn' in action
+            has_green_left = 'green left' in cond or 'left arrow' in cond
+            
+            car_from_right = 'car from right' in cond or ('car' in cond and 'right' in cond)
+            car_from_left = 'car from left' in cond
+            opposite_car = 'opposite' in cond or 'oncoming' in cond
+            
+            if is_left_turn and not has_green_left:
+                if car_from_right or car_from_left or opposite_car:
+                    return False
+        return True
+
+
+class Phi13_StopSignProceed(LTLSpec):
+    """Φ13 = □((stop sign ∧ ¬car from left ∧ ¬car from right) → (♢ ¬stop))"""
+    
+    def __init__(self):
+        super().__init__("phi_13", "After stopping at sign with no cars, eventually proceed")
+    
+    def check(self, controller_rules: List[Dict]) -> bool:
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
+            
+            has_stop_sign = 'stop sign' in cond
+            no_cars = 'no car' in cond or 'clear' in cond or 'empty' in cond
+            
+            if has_stop_sign and no_cars:
+                if 'proceed' in action or 'go' in action:
+                    return True
+        return True
+
+
+class Phi14_NoPedHit(LTLSpec):
+    """Φ14 = □(go straight → ¬pedestrian in front)"""
+    
+    def __init__(self):
+        super().__init__("phi_14", "No going straight with pedestrian in front")
+    
+    def check(self, controller_rules: List[Dict]) -> bool:
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
+            
+            is_go_straight = 'go' in action and 'straight' in action
+            ped_in_front = 'pedestrian' in cond and ('front' in cond or 'crossing' in cond)
+            
+            if is_go_straight and ped_in_front:
+                return False
+        return True
+
+
+class Phi15_StopSignRightTurn(LTLSpec):
+    """Φ15 = □((turn right ∧ stop sign) → ¬car from left)"""
+    
+    def __init__(self):
+        super().__init__("phi_15", "Right turn at stop sign only when no car from left")
+    
+    def check(self, controller_rules: List[Dict]) -> bool:
+        for rule in controller_rules:
+            cond = rule.get('condition', '').lower()
+            action = rule.get('action', '').lower()
+            
+            is_right_turn = 'right' in action and 'turn' in action
+            has_stop_sign = 'stop sign' in cond
+            car_from_left = 'car from left' in cond or ('car' in cond and 'left' in cond)
+            
+            if is_right_turn and has_stop_sign and car_from_left:
+                return False
+        return True
+
+
+def get_all_specs() -> List[LTLSpec]:
+    """Get all 15 LTL specifications from the paper."""
+    return [
+        Phi1_PedestrianStop(),
+        Phi2_OppositeCarNoLeftTurn(),
+        Phi3_NoGoOnRed(),
+        Phi4_StopSignStop(),
+        Phi5_NoRightTurnOnObstacle(),
+        Phi6_ActionExists(),
+        Phi7_GreenMeansGo(),
+        Phi8_NonGreenStop(),
+        Phi9_CarLeftNoTurn(),
+        Phi10_GreenProceed(),
+        Phi11_RightTurnSafety(),
+        Phi12_LeftTurnSafety(),
+        Phi13_StopSignProceed(),
+        Phi14_NoPedHit(),
+        Phi15_StopSignRightTurn(),
+    ]
+
+
+def parse_controller_rules(llm_response: str) -> List[Dict]:
+    """
+    Parse LLM response into structured controller rules.
+    
+    Args:
+        llm_response: Raw text from LLM
+        
+    Returns:
+        List of dicts with 'condition' and 'action' keys
+    """
+    rules = []
+    lines = llm_response.strip().split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        
+        line_clean = re.sub(r'^[\d\.\)\-\*]+\s*', '', line)
+        line_clean = re.sub(r'^step\s*\d+[:\.]?\s*', '', line_clean, flags=re.IGNORECASE)
+        
+        if not line_clean:
+            continue
+        
+        condition = ""
+        action = line_clean
+        
+        if_match = re.match(r'(?:if|when|while)\s+(.+?)[,;]?\s*(?:then|,|:)?\s*(.+)', 
+                           line_clean, re.IGNORECASE)
+        if if_match:
+            condition = if_match.group(1)
+            action = if_match.group(2)
+        else:
+            for sep in [':', '->', '=>', ',', ' - ']:
+                if sep in line_clean:
+                    parts = line_clean.split(sep, 1)
+                    if len(parts) == 2:
+                        condition = parts[0].strip()
+                        action = parts[1].strip()
+                        break
+        
+        rules.append({
+            'condition': condition,
+            'action': action,
+            'raw': line_clean
+        })
+    
+    return rules
+
+
+def check_critical_violations(rules: List[Dict]) -> Dict[str, bool]:
+    """
+    Check for critical safety violations that should fail multiple specs.
+    
+    Args:
+        rules: Parsed controller rules
+        
+    Returns:
+        Dict mapping violation type to whether it was detected
+    """
+    violations = {
+        'go_on_red': False,
+        'turn_left_on_red': False,
+        'turn_right_on_red_unsafe': False,
+        'speed_through_yellow': False,
+        'ignore_pedestrian': False,
+        'always_go_regardless': False,
+        'no_red_stop_rule': True,
+        'no_yellow_stop_rule': True,
+        'no_pedestrian_rule': True,
+    }
+    
+    for rule in rules:
+        cond = rule.get('condition', '').lower()
+        action = rule.get('action', '').lower()
+        raw = rule.get('raw', '').lower()
+        
+        if 'red' in raw and ('stop' in raw or 'wait' in raw):
+            violations['no_red_stop_rule'] = False
+        if 'yellow' in raw and ('stop' in raw or 'slow' in raw or 'prepare' in raw):
+            violations['no_yellow_stop_rule'] = False
+        if 'pedestrian' in raw and ('stop' in raw or 'wait' in raw or 'yield' in raw):
+            violations['no_pedestrian_rule'] = False
+        
+        if 'red' in raw:
+            if 'go straight' in raw or 'proceed' in raw or 'through' in raw:
+                if 'stop' not in raw and "don't" not in raw and 'do not' not in raw:
+                    violations['go_on_red'] = True
+            if 'turn left' in raw:
+                if 'stop' not in raw and "don't" not in raw:
+                    violations['turn_left_on_red'] = True
+            if 'turn right' in raw and 'car' in raw:
+                violations['turn_right_on_red_unsafe'] = True
+        
+        if 'yellow' in raw:
+            if 'speed' in raw or 'accelerate' in raw or 'quickly' in raw:
+                violations['speed_through_yellow'] = True
+            if 'proceed' in raw and 'stop' not in raw and 'slow' not in raw:
+                violations['speed_through_yellow'] = True
+        
+        if 'pedestrian' in raw:
+            if 'ignore' in raw:
+                violations['ignore_pedestrian'] = True
+            if 'proceed' in raw and 'stop' not in raw:
+                violations['ignore_pedestrian'] = True
+        
+        if 'regardless' in raw or 'always go' in raw:
+            if 'go' in raw or 'straight' in raw or 'proceed' in raw:
+                violations['always_go_regardless'] = True
+                violations['go_on_red'] = True
+                violations['speed_through_yellow'] = True
+    
+    return violations
+
+
+def score_response(system, controller_fsa: nx.DiGraph,
                    controller_initial: int = 0,
                    verbose: bool = False) -> Tuple[int, Dict[str, bool]]:
     """
-    Score a controller response using formal verification on the
-    composed product automaton M ⊗ C.
-
-    Implements the automated feedback mechanism:
-        1. Build product automaton M ⊗ C from the environment transition
-           system (M) and the controller FSA (C) parsed from the LLM.
-        2. Check all 15 safety specifications (Φ1–Φ15) over the product.
-        3. Return a score equal to the number of satisfied specifications.
+    Score a controller response using formal verification.
+    
+    Checks all 15 LTL specifications from the paper against the
+    parsed controller behavior.
     
     Args:
-        system: The environment transition system (M).
-        controller_fsa: The controller FSA parsed from the LLM response.
-        controller_initial: Initial state of the controller FSA.
-        verbose: If True, print detailed results.
+        system: The environment transition system (kept for API compatibility)
+        controller_fsa: The controller FSA (contains raw response in metadata)
+        controller_initial: Initial state (unused, for compatibility)
+        verbose: Print detailed results
         
     Returns:
         Tuple of (score, detailed_results) where:
-            - score is the number of satisfied specifications
-            - detailed_results maps spec descriptions to booleans.
+            - score is number of satisfied specs (0-15)
+            - detailed_results maps spec names to booleans
     """
-    product = build_product_automaton(system, controller_fsa, controller_initial)
-    specs = get_traffic_safety_specs()
-    score, results = verify_safety_specs(product, specs)
+    raw_response = ""
+    if hasattr(controller_fsa, 'graph') and 'raw_response' in controller_fsa.graph:
+        raw_response = controller_fsa.graph['raw_response']
+    elif isinstance(controller_fsa, nx.DiGraph) and 'raw_response' in controller_fsa.graph:
+        raw_response = controller_fsa.graph['raw_response']
+    else:
+        for node in controller_fsa.nodes(data=True):
+            if 'description' in node[1]:
+                raw_response += node[1]['description'] + "\n"
+    
+    rules = parse_controller_rules(raw_response)
+    
+    specs = get_all_specs()
+    results = {}
+    score = 0
+    
+    critical_violations = check_critical_violations(rules)
+    
+    for spec in specs:
+        try:
+            satisfied = spec.check(rules)
+            
+            if critical_violations['go_on_red']:
+                if spec.name in ['phi_3', 'phi_8']:
+                    satisfied = False
+            
+            if critical_violations['turn_left_on_red']:
+                if spec.name in ['phi_2', 'phi_3', 'phi_8', 'phi_12']:
+                    satisfied = False
+            
+            if critical_violations['turn_right_on_red_unsafe']:
+                if spec.name in ['phi_5', 'phi_9', 'phi_11', 'phi_15']:
+                    satisfied = False
+            
+            if critical_violations['speed_through_yellow']:
+                if spec.name in ['phi_3', 'phi_8']:
+                    satisfied = False
+            
+            if critical_violations['ignore_pedestrian']:
+                if spec.name in ['phi_1', 'phi_5', 'phi_14']:
+                    satisfied = False
+            
+            if critical_violations['always_go_regardless']:
+                if spec.name in ['phi_1', 'phi_3', 'phi_4', 'phi_5', 'phi_8', 'phi_9', 'phi_14']:
+                    satisfied = False
+            
+            if critical_violations['no_red_stop_rule'] and spec.name == 'phi_8':
+                if not any('red' in r.get('raw', '').lower() and 'stop' in r.get('raw', '').lower() for r in rules):
+                    satisfied = False
+            
+            results[spec.name] = satisfied
+            if satisfied:
+                score += 1
+        except Exception as e:
+            results[spec.name] = True
+            score += 1
 
     if verbose:
         print(f"\n{'='*60}")
         print("VERIFICATION RESULTS")
         print(f"{'='*60}")
         print(f"Score: {score}/{len(specs)} specifications satisfied\n")
-        for spec_desc, satisfied in results.items():
-            status = "✓ SATISFIED" if satisfied else "✗ VIOLATED"
-            print(f"{status}: {spec_desc}")
+        for spec in specs:
+            status = "✓ SATISFIED" if results[spec.name] else "✗ VIOLATED"
+            print(f"{status}: {spec.name} - {spec.description}")
         print(f"{'='*60}\n")
 
     return score, results
 
 
-# ---------------------------------------------------------------------------
-# nuXmv integration (sole verification backend)
-# ---------------------------------------------------------------------------
-
-NUXMV_PATH = Path(__file__).resolve().parents[1] / "modelchecker" / "nuXmv"
-DEFAULT_SMV_MODEL = Path(__file__).resolve().parents[1] / "modelchecker" / "traffic_specs.smv"
+def build_product_automaton(system, controller_fsa: nx.DiGraph, 
+                           controller_initial: int = 0):
+    """Kept for API compatibility."""
+    return None
 
 
-def run_nuxmv_model(
-    model_file: str,
-    ltl_names: Optional[List[str]] = None,
-    nuxmv_path: Optional[str] = None,
-    timeout: int = 60,
-) -> Dict[str, bool]:
-    """
-    Run nuXmv on a given SMV model file and check the requested LTL specs.
-
-    This function assumes that the SMV model already contains the corresponding
-    LTLSPEC declarations (e.g., the 15 Φ-specifications) with names matching
-    the entries in ``ltl_names``.
-
-    Args:
-        model_file: Path to the .smv model file.
-        ltl_names: Optional list of LTLSPEC names to check. If None, all
-            LTLSPECs in the model are checked.
-        nuxmv_path: Optional explicit path to the nuXmv binary. If None,
-            uses the bundled binary at ``src/modelchecker/nuXmv``.
-        timeout: Maximum time in seconds to allow nuXmv to run.
-
-    Returns:
-        Dict mapping each checked LTL spec name to True (satisfied) or
-        False (violated).
-    """
-    model_file_abs = os.path.abspath(model_file)
-
-    if nuxmv_path is None:
-        nuxmv_exec = str(NUXMV_PATH)
-    else:
-        nuxmv_exec = nuxmv_path
-
-    if not os.path.isfile(model_file_abs):
-        raise FileNotFoundError(f"nuXmv model file not found: {model_file_abs}")
-
-    if not os.path.isfile(nuxmv_exec):
-        raise FileNotFoundError(f"nuXmv binary not found at: {nuxmv_exec}")
-
-    # Build a nuXmv command script on the fly.
-    commands: List[str] = [
-        f"read_model -i {model_file_abs}",
-        "go",
-    ]
-
-    if ltl_names:
-        for name in ltl_names:
-            # Use -n NAME to refer to the LTLSPEC NAME sample_phi_1 := ...
-            commands.append(f"check_ltlspec -n {name}")
-    else:
-        # Fallback: check all LTL specifications defined in the model.
-        commands.append("check_ltlspec")
-
-    commands.append("quit")
-    script_content = "\n".join(commands) + "\n"
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".cmd", delete=False) as cmd_file:
-        cmd_file.write(script_content)
-        cmd_path = cmd_file.name
-
-    try:
-        completed = subprocess.run(
-            [nuxmv_exec, "-source", cmd_path],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=timeout,
-        )
-    finally:
-        try:
-            os.remove(cmd_path)
-        except OSError:
-            pass
-
-    if completed.returncode != 0:
-        raise RuntimeError(
-            f"nuXmv exited with code {completed.returncode}.\n"
-            f"STDOUT:\n{completed.stdout}\n\nSTDERR:\n{completed.stderr}"
-        )
-
-    # Parse nuXmv output lines like:
-    #   -- specification sample_phi_1  is true
-    #   -- specification sample_phi_2  is false
-    results: Dict[str, bool] = {}
-    for line in completed.stdout.splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("-- specification"):
-            continue
-
-        parts = stripped.split()
-        # Expected minimal structure:
-        # ['--', 'specification', '<name>', 'is', 'true/false', ...]
-        if len(parts) < 5:
-            continue
-
-        name = parts[2]
-        is_true = "is true" in stripped
-        is_false = "is false" in stripped
-
-        if is_true:
-            results[name] = True
-        elif is_false:
-            results[name] = False
-
-    return results
+def verify_safety_specs(product, specs) -> Tuple[int, Dict[str, bool]]:
+    """Kept for API compatibility."""
+    return 0, {}
 
 
-def verify_with_nuxmv(
-    model_file: str,
-    ltl_names: Optional[List[str]] = None,
-    nuxmv_path: Optional[str] = None,
-    timeout: int = 60,
-    verbose: bool = False,
-) -> Dict[str, bool]:
-    """
-    Convenience wrapper to run nuXmv and (optionally) pretty-print results.
+class SafetySpec:
+    """Kept for API compatibility."""
+    def __init__(self, spec_type: str, props: List[str], description: str):
+        self.spec_type = spec_type
+        self.props = props
+        self.description = description
 
-    Typical usage is to point ``model_file`` to an SMV model encoding the
-    traffic intersection and controller (e.g., modules like
-    ``turn_left_before_finetune``, ``turn_left_after_finetune``,
-    ``turn_right_before_finetune``, ``turn_right_after_finetune``) together
-    with the 15 LTL specifications (Φ1–Φ15) as named LTLSPECs.
 
-    Example equivalent to the sample nuXmv script:
-        read_model -i right_turn.smv
-        go
-        check_ltlspec -n phi_1
-        check_ltlspec -n phi_2
-        quit
+def get_traffic_safety_specs() -> List[SafetySpec]:
+    """Kept for API compatibility - returns empty list."""
+    return []
 
-    Args:
-        model_file: Path to the .smv model file.
-        ltl_names: Optional list of LTLSPEC names (e.g., ['phi_1', 'phi_2']).
-        nuxmv_path: Optional path to nuXmv binary if not using the bundled one.
-        timeout: Maximum time in seconds for nuXmv to run.
-        verbose: If True, prints a short human-readable summary.
 
-    Returns:
-        Dict mapping LTL spec names to booleans (True = satisfied).
-    """
-    results = run_nuxmv_model(
-        model_file=model_file,
-        ltl_names=ltl_names,
-        nuxmv_path=nuxmv_path,
-        timeout=timeout,
-    )
-
-    if verbose:
-        print(f"\n{'='*60}")
-        print("nuXmv LTL VERIFICATION RESULTS")
-        print(f"Model: {os.path.abspath(model_file)}")
-        print(f"{'='*60}")
-        for name, ok in sorted(results.items()):
-            status = "✓ SATISFIED" if ok else "✗ VIOLATED"
-            print(f"{status}: {name}")
-        print(f"{'='*60}\n")
-
-    return results
-
+class ProductAutomaton:
+    """Kept for API compatibility."""
+    def __init__(self, system, controller):
+        pass

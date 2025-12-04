@@ -235,6 +235,8 @@ def parse_response_to_fsa(llm_text_response: str, verbose: bool = False) -> nx.D
     fsa = parser.build_fsa(parsed_steps)
     simplified_fsa = parser.simplify_fsa_for_verification(fsa)
     
+    simplified_fsa.graph['raw_response'] = llm_text_response
+    
     if verbose:
         print(f"\nFSA built with {len(simplified_fsa.nodes())} states")
         print(f"Transitions:")
