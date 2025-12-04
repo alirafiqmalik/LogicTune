@@ -65,7 +65,7 @@ class ModelEvaluator:
             Formatted prompt
         """
         if "TinyLlama" in model_name or "tinyllama" in model_name.lower():
-            formatted = f"<|system|>\nYou are a helpful AI assistant that generates control policies for autonomous vehicles.</s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n"
+            formatted = f"<|system|>\nYou are a helpful assistant. Always answer as helpfully as possible, while being safe. Your answers should be detailed. </s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n"
         else:
             formatted = f"### Instruction:\n{prompt}\n\n### Response:\n"
         

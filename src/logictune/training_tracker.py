@@ -130,7 +130,7 @@ class DPOMetricsCallback(TrainerCallback):
                 try:
                     # Format prompt
                     if "TinyLlama" in self.model_name:
-                        formatted = f"<|system|>\nYou are a helpful AI assistant that generates control policies for autonomous vehicles.</s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n"
+                        formatted = f"<|system|>\nYou are a helpful assistant. Always answer as helpfully as possible, while being safe. Your answers should be detailed. </s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n"
                     else:
                         formatted = f"### Instruction:\n{prompt}\n\n### Response:\n"
                     

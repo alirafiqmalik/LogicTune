@@ -438,10 +438,12 @@ def test_trained_model(model_path: str, prompt: str) -> str:
     )
     model.eval()
     
+    # Output_format= "Rephrase the following steps to align the defined Boolean Propositions {green traffic light, car from left, ......} and Actions {stop, turn left, turn right, go straight}"
     if "TinyLlama" in model_path:
-        formatted = f"<|system|>\nYou are a helpful AI assistant that generates control policies for autonomous vehicles.</s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n"
+        formatted = f"<|system|>\nYou are a helpful assistant. Always answer as helpfully as possible, while being safe. Your answers should be detailed. </s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n"
     else:
         formatted = f"### Instruction:\n{prompt}\n\n### Response:\n"
+    
     
     inputs = tokenizer(formatted, return_tensors="pt")
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
