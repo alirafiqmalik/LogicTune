@@ -437,10 +437,10 @@ def test_trained_model(model_path: str, prompt: str) -> str:
         torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
     )
     model.eval()
-    
-    # Output_format= "Rephrase the following steps to align the defined Boolean Propositions {green traffic light, car from left, ......} and Actions {stop, turn left, turn right, go straight}"
+
+    output_format= "Generate a response that aligns with the defined Boolean Propositions {    green_traffic_light,green_left_turn_light,opposite_car,car_from_left,car_from_right,pedestrian_at_left,pedestrian_at_right,pedestrian_in_front,side_car,stop_sign} and Actions {stop, go_straight, turn_left, turn_right}"
     if "TinyLlama" in model_path:
-        formatted = f"<|system|>\nYou are a helpful assistant. Always answer as helpfully as possible, while being safe. Your answers should be detailed. </s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n"
+        formatted = f"<|system|>\nYou are a helpful assistant. Always answer as helpfully as possible, while being safe. Your answers should be detailed. </s>\n<|user|>\n{prompt}</s>\n${output_format}\n</s>\n<|assistant|>\n"
     else:
         formatted = f"### Instruction:\n{prompt}\n\n### Response:\n"
     

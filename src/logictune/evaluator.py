@@ -64,8 +64,9 @@ class ModelEvaluator:
         Returns:
             Formatted prompt
         """
+        output_format= "Generate a response that aligns with the defined Boolean Propositions {    green_traffic_light,green_left_turn_light,opposite_car,car_from_left,car_from_right,pedestrian_at_left,pedestrian_at_right,pedestrian_in_front,side_car,stop_sign} and Actions {stop, go_straight, turn_left, turn_right}"
         if "TinyLlama" in model_name or "tinyllama" in model_name.lower():
-            formatted = f"<|system|>\nYou are a helpful assistant. Always answer as helpfully as possible, while being safe. Your answers should be detailed. </s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n"
+            formatted = f"<|system|>\nYou are a helpful assistant. Always answer as helpfully as possible, while being safe. Your answers should be detailed. </s>\n<|user|>\n{prompt}</s>\n${output_format}\n</s>\n<|assistant|>\n"
         else:
             formatted = f"### Instruction:\n{prompt}\n\n### Response:\n"
         
