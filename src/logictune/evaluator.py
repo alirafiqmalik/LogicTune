@@ -240,7 +240,7 @@ class ModelEvaluator:
             print(f"Total Responses: {total_responses}")
             print(f"Total Score: {total_score}/{max_possible_score}")
             print(f"Specification Satisfaction Rate: {satisfaction_rate:.1f}%")
-            print(f"Average Score per Response: {avg_score:.2f}/3.0")
+            print(f"Average Score per Response: {avg_score:.2f}/15.0")
             print(f"{'='*70}\n")
         
         return results

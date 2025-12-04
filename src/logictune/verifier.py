@@ -7,6 +7,11 @@ Constructs product automaton M ⊗ C and checks safety specifications.
 Reference: "Fine-Tuning Language Models Using Formal Methods Feedback"
 """
 
+import os
+import subprocess
+import tempfile
+from pathlib import Path
+
 import networkx as nx
 from typing import Set, Dict, List, Tuple, Optional
 from collections import deque
@@ -418,4 +423,170 @@ def score_response(system: TransitionSystem,
         print(f"{'='*60}\n")
     
     return score, results
+
+
+# ---------------------------------------------------------------------------
+# nuXmv integration
+# ---------------------------------------------------------------------------
+
+NUXMV_PATH = Path(__file__).resolve().parents[1] / "modelchecker" / "nuXmv"
+
+
+def run_nuxmv_model(
+    model_file: str,
+    ltl_names: Optional[List[str]] = None,
+    nuxmv_path: Optional[str] = None,
+    timeout: int = 60,
+) -> Dict[str, bool]:
+    """
+    Run nuXmv on a given SMV model file and check the requested LTL specs.
+
+    This function assumes that the SMV model already contains the corresponding
+    LTLSPEC declarations (e.g., the 15 Φ-specifications) with names matching
+    the entries in ``ltl_names``.
+
+    Args:
+        model_file: Path to the .smv model file.
+        ltl_names: Optional list of LTLSPEC names to check. If None, all
+            LTLSPECs in the model are checked.
+        nuxmv_path: Optional explicit path to the nuXmv binary. If None,
+            uses the bundled binary at ``src/modelchecker/nuXmv``.
+        timeout: Maximum time in seconds to allow nuXmv to run.
+
+    Returns:
+        Dict mapping each checked LTL spec name to True (satisfied) or
+        False (violated).
+    """
+    model_file_abs = os.path.abspath(model_file)
+
+    if nuxmv_path is None:
+        nuxmv_exec = str(NUXMV_PATH)
+    else:
+        nuxmv_exec = nuxmv_path
+
+    if not os.path.isfile(model_file_abs):
+        raise FileNotFoundError(f"nuXmv model file not found: {model_file_abs}")
+
+    if not os.path.isfile(nuxmv_exec):
+        raise FileNotFoundError(f"nuXmv binary not found at: {nuxmv_exec}")
+
+    # Build a nuXmv command script on the fly.
+    commands: List[str] = [
+        f"read_model -i {model_file_abs}",
+        "go",
+    ]
+
+    if ltl_names:
+        for name in ltl_names:
+            # Use -n NAME to refer to the LTLSPEC NAME sample_phi_1 := ...
+            commands.append(f"check_ltlspec -n {name}")
+    else:
+        # Fallback: check all LTL specifications defined in the model.
+        commands.append("check_ltlspec")
+
+    commands.append("quit")
+    script_content = "\n".join(commands) + "\n"
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".cmd", delete=False) as cmd_file:
+        cmd_file.write(script_content)
+        cmd_path = cmd_file.name
+
+    try:
+        completed = subprocess.run(
+            [nuxmv_exec, "-source", cmd_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout,
+        )
+    finally:
+        try:
+            os.remove(cmd_path)
+        except OSError:
+            pass
+
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"nuXmv exited with code {completed.returncode}.\n"
+            f"STDOUT:\n{completed.stdout}\n\nSTDERR:\n{completed.stderr}"
+        )
+
+    # Parse nuXmv output lines like:
+    #   -- specification sample_phi_1  is true
+    #   -- specification sample_phi_2  is false
+    results: Dict[str, bool] = {}
+    for line in completed.stdout.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("-- specification"):
+            continue
+
+        parts = stripped.split()
+        # Expected minimal structure:
+        # ['--', 'specification', '<name>', 'is', 'true/false', ...]
+        if len(parts) < 5:
+            continue
+
+        name = parts[2]
+        is_true = "is true" in stripped
+        is_false = "is false" in stripped
+
+        if is_true:
+            results[name] = True
+        elif is_false:
+            results[name] = False
+
+    return results
+
+
+def verify_with_nuxmv(
+    model_file: str,
+    ltl_names: Optional[List[str]] = None,
+    nuxmv_path: Optional[str] = None,
+    timeout: int = 60,
+    verbose: bool = False,
+) -> Dict[str, bool]:
+    """
+    Convenience wrapper to run nuXmv and (optionally) pretty-print results.
+
+    Typical usage is to point ``model_file`` to an SMV model encoding the
+    traffic intersection and controller (e.g., modules like
+    ``turn_left_before_finetune``, ``turn_left_after_finetune``,
+    ``turn_right_before_finetune``, ``turn_right_after_finetune``) together
+    with the 15 LTL specifications (Φ1–Φ15) as named LTLSPECs.
+
+    Example equivalent to the sample nuXmv script:
+        read_model -i right_turn.smv
+        go
+        check_ltlspec -n phi_1
+        check_ltlspec -n phi_2
+        quit
+
+    Args:
+        model_file: Path to the .smv model file.
+        ltl_names: Optional list of LTLSPEC names (e.g., ['phi_1', 'phi_2']).
+        nuxmv_path: Optional path to nuXmv binary if not using the bundled one.
+        timeout: Maximum time in seconds for nuXmv to run.
+        verbose: If True, prints a short human-readable summary.
+
+    Returns:
+        Dict mapping LTL spec names to booleans (True = satisfied).
+    """
+    results = run_nuxmv_model(
+        model_file=model_file,
+        ltl_names=ltl_names,
+        nuxmv_path=nuxmv_path,
+        timeout=timeout,
+    )
+
+    if verbose:
+        print(f"\n{'='*60}")
+        print("nuXmv LTL VERIFICATION RESULTS")
+        print(f"Model: {os.path.abspath(model_file)}")
+        print(f"{'='*60}")
+        for name, ok in sorted(results.items()):
+            status = "✓ SATISFIED" if ok else "✗ VIOLATED"
+            print(f"{status}: {name}")
+        print(f"{'='*60}\n")
+
+    return results
 

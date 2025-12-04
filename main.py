@@ -68,7 +68,7 @@ def demo_verification_pipeline():
         # Score with formal verification
         score, results = score_response(system, controller_fsa, verbose=True)
         
-        print(f"\nFinal Score: {score}/3\n")
+        print(f"\nFinal Score: {score}/15\n")
 
 
 def generate_training_dataset(
@@ -169,7 +169,7 @@ def test_model(
     try:
         controller_fsa = parse_response_to_fsa(response, verbose=False)
         score, results = score_response(system, controller_fsa, verbose=True)
-        print(f"\n✓ Verification Score: {score}/3")
+        print(f"\n✓ Verification Score: {score}/15")
     except Exception as e:
         print(f"✗ Error during verification: {e}")
 

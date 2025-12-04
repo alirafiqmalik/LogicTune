@@ -154,7 +154,7 @@ class DPOMetricsCallback(TrainerCallback):
             
             self.epoch_scores[epoch] = scores
             avg_score = np.mean(scores) if scores else 0.0
-            print(f"  Average Score: {avg_score:.2f}/3.0")
+            print(f"  Average Score: {avg_score:.2f}/15.0")
             print(f"  Scores: {scores}")
             
         except Exception as e:

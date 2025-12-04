@@ -261,7 +261,7 @@ class DPODatasetGenerator:
             
             print(f"\nScores:")
             for i, (resp, score, _) in enumerate(scored):
-                print(f"  Response {i+1}: {score}/3 - {resp[:80]}...")
+                print(f"  Response {i+1}: {score}/15 - {resp[:80]}...")
             
             pairs = self.create_preference_pairs(scored)
             

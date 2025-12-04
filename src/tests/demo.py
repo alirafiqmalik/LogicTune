@@ -124,14 +124,14 @@ def demo_integration():
         print(f"\n{'─'*70}")
         print(f"Test: {test['name']}")
         print(f"Response: {test['response']}")
-        print(f"Expected Score: {test['expected_score']}/3")
+        print(f"Expected Score: {test['expected_score']}/15")
         print(f"{'─'*70}")
         
         fsa = parse_response_to_fsa(test['response'], verbose=False)
         score, details = score_response(system, fsa, verbose=False)
         
         status = "✓ PASS" if score == test['expected_score'] else "✗ FAIL"
-        print(f"Actual Score: {score}/3")
+        print(f"Actual Score: {score}/15")
         print(f"Status: {status}")
         
         results.append(score == test['expected_score'])
