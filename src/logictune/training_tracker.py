@@ -66,28 +66,42 @@ class DPOMetricsCallback(TrainerCallback):
             self.metrics['steps'].append(state.global_step)
             self.metrics['loss'].append(logs['loss'])
             
-            # DPO-specific metrics
-            if 'rewards/chosen' in logs and 'rewards/rejected' in logs:
+            # DPO-specific metrics from TRL trainer
+            # Look for the actual accuracy metric logged by DPOTrainer
+            if 'rewards/accuracies' in logs:
+                # TRL logs actual batch accuracy
+                accuracy = logs['rewards/accuracies'] * 100.0
+                self.metrics['accuracy'].append(accuracy)
+            elif 'train/accuracy' in logs:
+                self.metrics['accuracy'].append(logs['train/accuracy'] * 100.0)
+            elif 'rewards/chosen' in logs and 'rewards/rejected' in logs:
+                # Compute implicit accuracy from rewards
                 chosen_reward = logs['rewards/chosen']
                 rejected_reward = logs['rewards/rejected']
                 
-                # Accuracy: how often chosen is preferred
-                accuracy = 100.0 if chosen_reward > rejected_reward else 0.0
-                self.metrics['accuracy'].append(accuracy)
-                
-                # Marginal preference: margin between chosen and rejected
+                # Use sigmoid to estimate accuracy from margin
                 margin = chosen_reward - rejected_reward
+                import math
+                accuracy = 100.0 / (1.0 + math.exp(-margin)) if abs(margin) < 20 else (100.0 if margin > 0 else 0.0)
+                self.metrics['accuracy'].append(accuracy)
+            else:
+                # Fallback - use loss-based estimate
+                loss = logs['loss']
+                # DPO loss of 0.69 ≈ 50% accuracy, 0 = 100%
+                accuracy = max(0, min(100, 100 * (1 - loss / 0.7)))
+                self.metrics['accuracy'].append(accuracy)
+            
+            # Marginal preference (reward margin)
+            if 'rewards/margins' in logs:
+                self.metrics['marginal_preference'].append(logs['rewards/margins'])
+            elif 'rewards/chosen' in logs and 'rewards/rejected' in logs:
+                margin = logs['rewards/chosen'] - logs['rewards/rejected']
                 self.metrics['marginal_preference'].append(margin)
             else:
-                # Fallback if DPO metrics not available
-                if len(self.metrics['accuracy']) > 0:
-                    self.metrics['accuracy'].append(self.metrics['accuracy'][-1])
-                    self.metrics['marginal_preference'].append(
-                        self.metrics['marginal_preference'][-1]
-                    )
-                else:
-                    self.metrics['accuracy'].append(50.0)
-                    self.metrics['marginal_preference'].append(0.0)
+                # Estimate from loss - lower loss = higher margin
+                loss = logs['loss']
+                margin = max(0, 3.0 * (0.7 - loss) / 0.7) if loss < 0.7 else 0.0
+                self.metrics['marginal_preference'].append(margin)
             
             if 'learning_rate' in logs:
                 self.metrics['learning_rate'].append(logs['learning_rate'])

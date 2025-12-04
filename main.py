@@ -285,8 +285,8 @@ def main():
                        help="Training epochs")
     parser.add_argument("--batch-size", type=int, default=2,
                        help="Batch size")
-    parser.add_argument("--lr", type=float, default=5e-5,
-                       help="Learning rate")
+    parser.add_argument("--lr", type=float, default=1e-5,
+                       help="Learning rate (default: 1e-5, lower to prevent overfitting)")
     parser.add_argument("--beta", type=float, default=0.1,
                        help="DPO beta parameter")
     parser.add_argument("--n-responses", type=int, default=4,

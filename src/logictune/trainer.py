@@ -128,7 +128,7 @@ def train_dpo(
     output_dir: str = "dpo_model",
     num_epochs: int = 3,
     batch_size: int = 2,
-    learning_rate: float = 5e-5,
+    learning_rate: float = 1e-5,  # Reduced from 5e-5 to prevent overfitting
     beta: float = 0.1,
     use_quantization: bool = False,
     max_length: int = 512,
@@ -195,6 +195,11 @@ def train_dpo(
     ref_model = None  # Will be set conditionally based on TRL version requirements
     
     # Configure training arguments - try DPOConfig first for DPO-specific params
+    # Key settings to prevent overfitting:
+    # - Lower learning rate (1e-5 instead of 5e-5)
+    # - Weight decay for regularization
+    # - Warmup ratio instead of fixed steps (better for variable dataset sizes)
+    # - Max gradient norm clipping
     training_args_dict = {
         "output_dir": output_dir,
         "num_train_epochs": num_epochs,
@@ -202,7 +207,9 @@ def train_dpo(
         "per_device_eval_batch_size": batch_size,
         "learning_rate": learning_rate,
         "lr_scheduler_type": "cosine",
-        "warmup_steps": 100,
+        "warmup_ratio": 0.1,  # Use ratio instead of fixed steps
+        "weight_decay": 0.01,  # Add regularization
+        "max_grad_norm": 1.0,  # Gradient clipping
         "logging_steps": 10,
         "save_steps": 100,
         "eval_steps": 100 if eval_dataset else None,
