@@ -198,7 +198,7 @@ class ModelEvaluator:
                     
                     total_responses += 1
                     total_score += score
-                    max_possible_score += 3
+                    max_possible_score += 15
                     
                     all_results.append({
                         'prompt': prompt,
@@ -211,7 +211,7 @@ class ModelEvaluator:
                     if verbose:
                         print(f"Error evaluating response: {e}")
                     total_responses += 1
-                    max_possible_score += 3
+                    max_possible_score += 15
                     all_results.append({
                         'prompt': prompt,
                         'response': '',
