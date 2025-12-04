@@ -392,44 +392,49 @@ def score_response(system: TransitionSystem,
                    controller_initial: int = 0,
                    verbose: bool = False) -> Tuple[int, Dict[str, bool]]:
     """
-    Score a controller response using formal verification.
-    
+    Score a controller response using formal verification on the
+    composed product automaton M ⊗ C.
+
     Implements the automated feedback mechanism:
-    1. Build product automaton M ⊗ C
-    2. Check safety specifications
-    3. Return score based on satisfied specs
+        1. Build product automaton M ⊗ C from the environment transition
+           system (M) and the controller FSA (C) parsed from the LLM.
+        2. Check all 15 safety specifications (Φ1–Φ15) over the product.
+        3. Return a score equal to the number of satisfied specifications.
     
     Args:
-        system: The environment transition system
-        controller_fsa: The controller FSA parsed from LLM response
-        controller_initial: Initial state of controller
-        verbose: Print detailed results
+        system: The environment transition system (M).
+        controller_fsa: The controller FSA parsed from the LLM response.
+        controller_initial: Initial state of the controller FSA.
+        verbose: If True, print detailed results.
         
     Returns:
-        Tuple of (score, detailed_results) where score is 0-3
+        Tuple of (score, detailed_results) where:
+            - score is the number of satisfied specifications
+            - detailed_results maps spec descriptions to booleans.
     """
     product = build_product_automaton(system, controller_fsa, controller_initial)
     specs = get_traffic_safety_specs()
     score, results = verify_safety_specs(product, specs)
-    
+
     if verbose:
         print(f"\n{'='*60}")
-        print(f"VERIFICATION RESULTS")
+        print("VERIFICATION RESULTS")
         print(f"{'='*60}")
         print(f"Score: {score}/{len(specs)} specifications satisfied\n")
         for spec_desc, satisfied in results.items():
             status = "✓ SATISFIED" if satisfied else "✗ VIOLATED"
             print(f"{status}: {spec_desc}")
         print(f"{'='*60}\n")
-    
+
     return score, results
 
 
 # ---------------------------------------------------------------------------
-# nuXmv integration
+# nuXmv integration (sole verification backend)
 # ---------------------------------------------------------------------------
 
 NUXMV_PATH = Path(__file__).resolve().parents[1] / "modelchecker" / "nuXmv"
+DEFAULT_SMV_MODEL = Path(__file__).resolve().parents[1] / "modelchecker" / "traffic_specs.smv"
 
 
 def run_nuxmv_model(

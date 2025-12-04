@@ -1,0 +1,124 @@
+-- traffic_specs.smv
+-- nuXmv model containing the 15 LTL specifications (Φ1–Φ15)
+-- used by LogicTune for formal verification-based scoring.
+--
+-- This file focuses on the specification layer. The state variables
+-- represent the atomic propositions mentioned in the paper, and
+-- the LTL properties are written over these variables and the
+-- discrete action variable.
+--
+-- Variables:
+--   green_traffic_light    : boolean
+--   green_left_turn_light  : boolean
+--   opposite_car           : boolean
+--   car_from_left          : boolean
+--   car_from_right         : boolean
+--   pedestrian_at_left     : boolean
+--   pedestrian_at_right    : boolean
+--   pedestrian_in_front    : boolean
+--   side_car               : boolean
+--   stop_sign              : boolean
+--   action                 : {stop, go_straight, turn_left, turn_right}
+--
+-- Notes:
+--   - No transition relation is imposed here; the variables are
+--     unconstrained and range nondeterministically over their domains.
+--   - The 15 LTL formulas below (phi_1 .. phi_15) match the
+--     specifications given in the prompt.
+
+MODULE main
+
+VAR
+  green_traffic_light   : boolean;
+  green_left_turn_light : boolean;
+  opposite_car          : boolean;
+  car_from_left         : boolean;
+  car_from_right        : boolean;
+  pedestrian_at_left    : boolean;
+  pedestrian_at_right   : boolean;
+  pedestrian_in_front   : boolean;
+  side_car              : boolean;
+  stop_sign             : boolean;
+
+  action : {stop, go_straight, turn_left, turn_right};
+
+
+-- Φ1 = □(pedestrian → (♢ stop))
+LTLSPEC NAME phi_1 :=
+  G( pedestrian_in_front -> F (action = stop) );
+
+
+-- Φ2 = □(opposite car ∧ ¬green left-turn light → ¬turn left)
+LTLSPEC NAME phi_2 :=
+  G( (opposite_car & !green_left_turn_light) -> !(action = turn_left) );
+
+
+-- Φ3 = □(¬green traffic light → ¬go straight)
+LTLSPEC NAME phi_3 :=
+  G( (!green_traffic_light) -> !(action = go_straight) );
+
+
+-- Φ4 = □(stop sign → ♢ stop)
+LTLSPEC NAME phi_4 :=
+  G( stop_sign -> F (action = stop) );
+
+
+-- Φ5 = □(car from left ∨ pedestrian at right → ¬turn right)
+LTLSPEC NAME phi_5 :=
+  G( (car_from_left | pedestrian_at_right) -> !(action = turn_right) );
+
+
+-- Φ6 = □(stop ∨ go straight ∨ turn left ∨ turn right)
+-- Since 'action' ranges over exactly these four values, this property
+-- holds trivially, but we encode it explicitly for completeness.
+LTLSPEC NAME phi_6 :=
+  G( (action = stop) | (action = go_straight) | (action = turn_left) | (action = turn_right) );
+
+
+-- Φ7 = ♢(green traffic light ∨ green left-turn light) → ♢ ¬stop
+LTLSPEC NAME phi_7 :=
+  ( F (green_traffic_light | green_left_turn_light) )
+    -> F !(action = stop);
+
+
+-- Φ8 = □(¬green traffic light → ♢ stop)
+LTLSPEC NAME phi_8 :=
+  G( (!green_traffic_light) -> F (action = stop) );
+
+
+-- Φ9 = □(car from left → ¬(turn left ∨ turn right))
+LTLSPEC NAME phi_9 :=
+  G( car_from_left -> !( (action = turn_left) | (action = turn_right) ) );
+
+
+-- Φ10 = □(green traffic light → ♢ ¬stop)
+LTLSPEC NAME phi_10 :=
+  G( green_traffic_light -> F !(action = stop) );
+
+
+-- Φ11 = □((turn right ∧ ¬green traffic light) → ¬car from left)
+LTLSPEC NAME phi_11 :=
+  G( ((action = turn_right) & !green_traffic_light) -> !car_from_left );
+
+
+-- Φ12 = □((turn left ∧ ¬green left-turn light) → (¬car from right ∧ ¬car from left ∧ ¬opposite car))
+LTLSPEC NAME phi_12 :=
+  G( ((action = turn_left) & !green_left_turn_light)
+       -> (!car_from_right & !car_from_left & !opposite_car) );
+
+
+-- Φ13 = □((stop sign ∧ ¬car from left ∧ ¬car from right) → (♢ ¬stop))
+LTLSPEC NAME phi_13 :=
+  G( (stop_sign & !car_from_left & !car_from_right) -> F !(action = stop) );
+
+
+-- Φ14 = □(go straight → ¬pedestrian in front)
+LTLSPEC NAME phi_14 :=
+  G( (action = go_straight) -> !pedestrian_in_front );
+
+
+-- Φ15 = □((turn right ∧ stop sign) → ¬car from left)
+LTLSPEC NAME phi_15 :=
+  G( ((action = turn_right) & stop_sign) -> !car_from_left );
+
+
