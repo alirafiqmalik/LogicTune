@@ -131,6 +131,35 @@ class TrainingVisualizer:
                 ax.set_yticks([0, 20, 40, 60, 80, 100])
             elif metric_name == 'marginal_preference':
                 ax.set_ylim(bottom=0)
+                
+                # Add horizontal reference lines for marginal preference
+                epochs_arr = np.array(epochs)
+                
+                # Calculate average for early epochs (0-10)
+                early_mask = epochs_arr <= 10
+                if np.any(early_mask) and values.ndim == 2:
+                    early_avg = np.mean(mean_values[early_mask])
+                    ax.axhline(y=early_avg, color='#e74c3c', linestyle=':', 
+                              linewidth=2, alpha=0.8, zorder=2)
+                    # Add text to the right of plot
+                    ax.text(epochs[-1] + 1, early_avg, 'No preference for\npromptA or promptB', 
+                           fontsize=8, color='#e74c3c', va='center', ha='left',
+                           fontweight='bold')
+                
+                # Calculate average for later epochs (after 25)
+                late_mask = epochs_arr >= 25
+                if np.any(late_mask) and values.ndim == 2:
+                    late_avg = np.mean(mean_values[late_mask])
+                    ax.axhline(y=late_avg, color='#27ae60', linestyle=':', 
+                              linewidth=2, alpha=0.8, zorder=2)
+                    # Add text to the left of plot
+                    ax.text(epochs[0] - 1, late_avg, 'Strong preference\nfor promptA', 
+                           fontsize=8, color='#27ae60', va='center', ha='right',
+                           fontweight='bold')
+                
+                # Adjust x-axis limits to accommodate text
+                x_padding = (epochs[-1] - epochs[0]) * 0.15
+                ax.set_xlim(epochs[0] - x_padding, epochs[-1] + x_padding)
         
         # Add overall title
         fig.suptitle('Fine-Tuning Statistics: Mean over 5 Seeds (Shaded: Min-Max Range)', 
