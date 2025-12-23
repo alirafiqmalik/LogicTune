@@ -56,6 +56,13 @@ function get_controller(scenarioId) {
                 { from: 3, to: 4, condition: "!car_from_left", action: "turn_left" }
             );
             break;
+        case 6: // Gap Acceptance - Unprotected left turn, clear intersection
+            edges.push(
+                { from: 0, to: 4, condition: "!opposite_car && !car_from_left && !pedestrian_at_left", action: "turn_left" },
+                { from: 0, to: 3, condition: "opposite_car || car_from_left || pedestrian_at_left", action: "wait" },
+                { from: 3, to: 4, condition: "!opposite_car && !car_from_left && !pedestrian_at_left", action: "turn_left" }
+            );
+            break;
         case 7: // Protected Left
             edges.push(
                 { from: 0, to: 4, condition: "green_left_turn_light", action: "turn_left" }

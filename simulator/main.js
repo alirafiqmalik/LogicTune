@@ -121,7 +121,14 @@ function initSimulation(scenarioId) {
     // Reset State
     simState.time = 0;
     simState.phase = 'approach';
-    simState.car = { x: canvas.width/2, y: canvas.height - 50, angle: -Math.PI/2, speed: 0, intent: 'straight' };
+    // Car starts at bottom center, pointing up (north)
+    simState.car = { 
+        x: canvas.width/2, 
+        y: canvas.height - 50, 
+        angle: -Math.PI/2, // Pointing up (north)
+        speed: 0, 
+        intent: 'straight' 
+    };
     
     // Default Vars (All safe)
     for (let key in simState.vars) if (key !== 'action') simState.vars[key] = false;
@@ -200,6 +207,7 @@ function initSimulation(scenarioId) {
             simState.vars.green_traffic_light = true;
             simState.car.intent = 'straight';
             simState.vars.action = 'stop';
+            simState.car.speed = 0; // Ensure car is stopped
             break;
         case 15: // Side Car
             simState.vars.green_traffic_light = true;
@@ -237,48 +245,97 @@ function updateController(scenarioId) {
     // Logic Tree based on Scenarios
     if (!passedLine) {
         // APPROACHING
-        if (v.green_traffic_light && v.pedestrian_in_front) nextAction = 'stop'; // S1
-        else if (v.green_traffic_light && !v.pedestrian_in_front && !v.stop_sign) nextAction = 'go_straight'; // S14
-        else if (!v.green_traffic_light && !v.green_left_turn_light && !v.stop_sign && scenarioId !== 16) nextAction = 'stop'; // Red light
+        if (v.pedestrian_in_front) {
+            nextAction = 'stop'; // Always stop for pedestrian in front
+        }
         else if (v.stop_sign) {
             // Must stop first. In this sim, we check speed.
-            if (simState.car.speed > 0.5 && !atLine) nextAction = 'stop'; // Decelerate to stop
-            else if (atLine && simState.time < 80) nextAction = 'stop'; // Wait a bit
-            else {
+            if (simState.car.speed > 0.5 && !atLine) {
+                nextAction = 'stop'; // Decelerate to stop
+            } else if (atLine && simState.time < 100) {
+                nextAction = 'stop'; // Wait at stop sign
+            } else {
                 // After stop, check traffic
-                if (v.car_from_left || v.car_from_right || v.pedestrian_at_right) nextAction = 'wait';
-                else nextAction = simState.car.intent === 'right' ? 'turn_right' : 'go_straight';
+                if (v.car_from_left || v.car_from_right || v.pedestrian_at_right) {
+                    nextAction = 'wait';
+                } else {
+                    nextAction = simState.car.intent === 'right' ? 'turn_right' : 
+                                 simState.car.intent === 'left' ? 'turn_left' : 'go_straight';
+                }
+            }
+        }
+        else if (!v.green_traffic_light && !v.green_left_turn_light && scenarioId !== 16) {
+            // Red light - must stop
+            if (simState.car.speed > 0.5 && !atLine) {
+                nextAction = 'stop'; // Decelerate
+            } else if (atLine) {
+                nextAction = 'wait'; // Wait for green
+            } else {
+                nextAction = 'stop';
+            }
+        }
+        else if (v.green_traffic_light || v.green_left_turn_light) {
+            // Green light - proceed based on intent
+            if (simState.car.intent === 'left') {
+                if (v.green_left_turn_light) {
+                    nextAction = 'turn_left'; // Protected left
+                } else if (v.opposite_car || v.car_from_left || v.pedestrian_at_left) {
+                    nextAction = 'wait'; // Wait for clear
+                } else {
+                    nextAction = 'turn_left'; // Unprotected left (gap acceptance)
+                }
+            } else if (simState.car.intent === 'right') {
+                if (v.pedestrian_at_right || v.car_from_left) {
+                    nextAction = 'wait';
+                } else {
+                    nextAction = 'turn_right';
+                }
+            } else {
+                nextAction = 'go_straight';
             }
         }
         else {
-            nextAction = 'go_straight'; // Default approach
-        }
-        
-        // Specific Intent overrides
-        if(nextAction !== 'stop' && nextAction !== 'wait') {
-            if(simState.car.intent === 'left') nextAction = 'turn_left';
-            if(simState.car.intent === 'right') nextAction = 'turn_right';
+            // Default: proceed based on intent (for scenario 16 - uncontrolled)
+            if (simState.car.intent === 'left') {
+                if (v.opposite_car || v.car_from_left || v.pedestrian_at_left) {
+                    nextAction = 'wait';
+                } else {
+                    nextAction = 'turn_left';
+                }
+            } else if (simState.car.intent === 'right') {
+                if (v.pedestrian_at_right || v.car_from_left) {
+                    nextAction = 'wait';
+                } else {
+                    nextAction = 'turn_right';
+                }
+            } else {
+                nextAction = 'go_straight';
+            }
         }
 
     } else {
-        // IN INTERSECTION
+        // IN INTERSECTION (already passed stop line)
         if (simState.car.intent === 'left') {
             // Check conflicts
-            if (v.green_left_turn_light) nextAction = 'turn_left';
-            else if (v.opposite_car || v.car_from_left || v.pedestrian_at_left) nextAction = 'wait';
-            else nextAction = 'turn_left';
+            if (v.green_left_turn_light) {
+                nextAction = 'turn_left';
+            } else if (v.opposite_car || v.car_from_left || v.pedestrian_at_left) {
+                nextAction = 'wait';
+            } else {
+                nextAction = 'turn_left';
+            }
         }
         else if (simState.car.intent === 'right') {
-            if (v.pedestrian_at_right || v.car_from_left) nextAction = 'wait';
-            else nextAction = 'turn_right';
+            if (v.pedestrian_at_right || v.car_from_left) {
+                nextAction = 'wait';
+            } else {
+                nextAction = 'turn_right';
+            }
         }
         else {
-             nextAction = 'go_straight';
+            nextAction = 'go_straight';
         }
     }
-
-    // Global override for Pedestrians in path
-    if (v.pedestrian_in_front && !passedLine) nextAction = 'stop';
     
     // Update Action Variable
     simState.vars.action = nextAction;
@@ -300,36 +357,89 @@ function updatePhysics(action) {
 
     // Handle Environment Changes (simulating passage of time)
     simState.time += timeScale; // Time moves faster with slider
-    if (simState.time > 150) {
-         // Simulate obstacles clearing after some time
-         simState.vars.pedestrian_in_front = false;
-         simState.vars.opposite_car = false;
-         simState.vars.car_from_left = false;
-         simState.vars.car_from_right = false;
-         // Traffic light change for S13
-         if(document.getElementById('scenario-select').value == 13 && simState.time > 200) simState.vars.green_traffic_light = true;
+    
+    // Scenario-specific dynamic changes
+    const currentScenario = parseInt(document.getElementById('scenario-select').value);
+    
+    // Pedestrians clear after crossing
+    if (simState.time > 120 && simState.vars.pedestrian_in_front) {
+        simState.vars.pedestrian_in_front = false;
+    }
+    if (simState.time > 100 && (simState.vars.pedestrian_at_left || simState.vars.pedestrian_at_right)) {
+        simState.vars.pedestrian_at_left = false;
+        simState.vars.pedestrian_at_right = false;
+    }
+    
+    // Traffic clears after passing
+    if (simState.time > 180) {
+        simState.vars.opposite_car = false;
+        simState.vars.car_from_left = false;
+        simState.vars.car_from_right = false;
+    }
+    
+    // Traffic light change for S13 (Red light -> Green)
+    if (currentScenario === 13 && simState.time > 200 && !simState.vars.green_traffic_light) {
+        simState.vars.green_traffic_light = true;
+    }
+    
+    // Scenario 12: Dynamic risk - car from left may appear/disappear
+    if (currentScenario === 12 && simState.time > 150 && simState.vars.car_from_left) {
+        simState.vars.car_from_left = false; // Car passes
     }
 
     // Car Physics scaling with timeScale
-    if (action === 'stop' || action === 'wait') {
-        simState.car.speed = Math.max(0, simState.car.speed - (friction * timeScale)); 
+    if (action === 'stop') {
+        // Hard stop - decelerate quickly
+        simState.car.speed = Math.max(0, simState.car.speed - (friction * 1.5 * timeScale));
+    } else if (action === 'wait') {
+        // Maintain stopped position
+        simState.car.speed = Math.max(0, simState.car.speed - (friction * timeScale));
     } else if (action === 'go_straight') {
         simState.car.speed = Math.min(maxSpeed, simState.car.speed + (acceleration * timeScale));
     } else if (action === 'turn_left') {
         simState.car.speed = Math.min(turnSpeed, simState.car.speed + (acceleration * timeScale));
-        if (simState.car.y < canvas.height/2 + 20) {
-            simState.car.angle = Math.max(-Math.PI, simState.car.angle - (turnRate * timeScale));
+        // Start turning when approaching intersection (before stop line)
+        const stopLineY = canvas.height/2 + 60;
+        if (simState.car.y <= stopLineY + 40) {
+            // Smooth turn: rotate toward -Math.PI (pointing left)
+            const targetAngle = -Math.PI;
+            const angleDiff = targetAngle - simState.car.angle;
+            // Normalize angle difference to [-π, π]
+            let normalizedDiff = angleDiff;
+            if (normalizedDiff > Math.PI) normalizedDiff -= 2 * Math.PI;
+            if (normalizedDiff < -Math.PI) normalizedDiff += 2 * Math.PI;
+            // Smooth interpolation
+            simState.car.angle += Math.sign(normalizedDiff) * Math.min(Math.abs(normalizedDiff), turnRate * timeScale);
         }
     } else if (action === 'turn_right') {
         simState.car.speed = Math.min(turnSpeed, simState.car.speed + (acceleration * timeScale));
-        if (simState.car.y < canvas.height/2 + 20) {
-            simState.car.angle = Math.min(0, simState.car.angle + (turnRate * timeScale));
+        // Start turning when approaching intersection (before stop line)
+        const stopLineY = canvas.height/2 + 60;
+        if (simState.car.y <= stopLineY + 40) {
+            // Smooth turn: rotate toward 0 (pointing right)
+            const targetAngle = 0;
+            const angleDiff = targetAngle - simState.car.angle;
+            // Normalize angle difference to [-π, π]
+            let normalizedDiff = angleDiff;
+            if (normalizedDiff > Math.PI) normalizedDiff -= 2 * Math.PI;
+            if (normalizedDiff < -Math.PI) normalizedDiff += 2 * Math.PI;
+            // Smooth interpolation
+            simState.car.angle += Math.sign(normalizedDiff) * Math.min(Math.abs(normalizedDiff), turnRate * timeScale);
         }
     }
 
     // Move Position (Velocity * Time)
-    simState.car.x += Math.cos(simState.car.angle) * simState.car.speed * timeScale;
-    simState.car.y += Math.sin(simState.car.angle) * simState.car.speed * timeScale;
+    // Note: angle -π/2 points up (north), so sin(-π/2) = -1 moves car up (decreasing y)
+    const dx = Math.cos(simState.car.angle) * simState.car.speed * timeScale;
+    const dy = Math.sin(simState.car.angle) * simState.car.speed * timeScale;
+    
+    simState.car.x += dx;
+    simState.car.y += dy;
+    
+    // Boundary checks to prevent car from going off-screen
+    const margin = 50;
+    simState.car.x = Math.max(margin, Math.min(canvas.width - margin, simState.car.x));
+    simState.car.y = Math.max(margin, Math.min(canvas.height - margin, simState.car.y));
 }
 
 // Drawing Functions
@@ -447,9 +557,11 @@ function drawEntities() {
     // Obstacles
     const v = simState.vars;
 
-    // Pedestrian Front (Walking across top crosswalk or bottom)
+    // Pedestrian Front (Walking across crosswalk in front of car)
     if (v.pedestrian_in_front) {
-        drawPedestrian(cx, cy + 90); // Blocking start
+        // Animate pedestrian position based on time
+        const pedOffset = Math.min(60, simState.time * 0.3); // Moves slowly
+        drawPedestrian(cx, cy + 90 - pedOffset); // Blocking path, moving across
     }
     if (v.pedestrian_at_right) {
         drawPedestrian(cx + 80, cy);
@@ -555,14 +667,19 @@ function loop() {
 
     // Update Logic
     const id = document.getElementById('scenario-select').value;
-    updateController(id);
+    if (id) {
+        updateController(id);
+    }
 
     // Draw
     drawIntersection();
     drawEntities();
 
     // UI Updates
-    document.getElementById('current-action').textContent = simState.vars.action.toUpperCase();
+    const currentActionEl = document.getElementById('current-action');
+    if (currentActionEl) {
+        currentActionEl.textContent = simState.vars.action.toUpperCase();
+    }
     
     // Check LTL
     checkLTL();
@@ -572,7 +689,6 @@ function loop() {
         .filter(([k]) => k !== 'action') // Action shown elsewhere
         .map(([k, val]) => {
             const color = val ? 'text-blue-400 font-bold' : 'text-slate-600';
-            const icon = val ? 'check_circle' : 'radio_button_unchecked';
             return `<div class="flex justify-between items-center p-1 hover:bg-slate-800 rounded">
                         <span class="text-slate-400">${k}</span>
                         <span class="${color} flex items-center gap-1 text-[10px]">
@@ -580,7 +696,10 @@ function loop() {
                         </span>
                     </div>`;
         }).join('');
-    document.getElementById('variables-monitor').innerHTML = varList;
+    const varMonitorEl = document.getElementById('variables-monitor');
+    if (varMonitorEl) {
+        varMonitorEl.innerHTML = varList;
+    }
 
     animationId = requestAnimationFrame(loop);
 }
