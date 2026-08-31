@@ -40,6 +40,12 @@ def experiment(results, name):
     raise KeyError(name)
 
 
+def exact_spread_pct(group):
+    """Spread from the integer score totals, so rounding of the percentages cannot skew it."""
+    scores = group["measurements_score"]
+    return (max(scores) - min(scores)) / group["max_possible_score"] * 100
+
+
 def annotate_bars(ax, bars, values, fmt="{:.1f}%", offset=0.8):
     for bar, value in zip(bars, values):
         ax.text(
@@ -121,6 +127,7 @@ def plot_measurement_noise(results, out_path):
 
     base = repeated["TinyLlama/TinyLlama-1.1B-Chat-v1.0"]
     tuned = repeated["dpo_model"]
+    base_spread = exact_spread_pct(base)
     groups = [
         ("Base model\n(unchanged weights)", base, BASE_COLOR),
         ("Fine-tuned dpo_model\n(unchanged weights)", tuned, TUNED_COLOR),
@@ -148,7 +155,7 @@ def plot_measurement_noise(results, out_path):
                 fontsize=9,
             )
         ax_left.annotate(
-            f"spread {group['spread_pct']:.1f} pp",
+            f"spread {exact_spread_pct(group):.1f} pp",
             (idx, max(values)),
             textcoords="offset points",
             xytext=(0, 16),
@@ -178,11 +185,11 @@ def plot_measurement_noise(results, out_path):
     bars = ax_right.bar(x, deltas, color=TUNED_COLOR, alpha=0.85, width=0.55)
     ax_right.axhline(0, color="black", linewidth=1)
     ax_right.axhspan(
-        -base["spread_pct"],
-        base["spread_pct"],
+        -base_spread,
+        base_spread,
         color=NOISE_COLOR,
         alpha=0.22,
-        label=f"+/- base-model spread ({base['spread_pct']:.1f} pp)",
+        label=f"+/- base-model spread ({base_spread:.1f} pp)",
     )
     for bar, delta in zip(bars, deltas):
         ax_right.text(
@@ -195,7 +202,7 @@ def plot_measurement_noise(results, out_path):
             fontweight="bold",
         )
 
-    within_noise = sum(1 for d in deltas if abs(d) <= base["spread_pct"])
+    within_noise = sum(1 for d in deltas if abs(d) <= base_spread)
     ax_right.set_xticks(x)
     ax_right.set_xticklabels(names, fontsize=9)
     ax_right.set_ylabel("Change after fine-tuning (percentage points)")

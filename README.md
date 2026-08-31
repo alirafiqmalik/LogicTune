@@ -45,7 +45,7 @@ The scores are also coarse. Each evaluation is 20 generations × 3 specification
 
 ### Why so little was learned
 
-DPO can only learn from pairs where one response scores higher than another. Under the 3-specification verifier used in this run, most candidate responses tied at 3/3 and were discarded. Across the whole session, 72 candidate generations produced just **18 usable preference pairs**, and training ran for 3, 6, and 3 optimizer steps respectively. DPO loss stayed at its initialization value of ≈0.69 (`ln 2`) in every round, which is what you see when the policy has barely moved from the reference.
+DPO can only learn from pairs where one response scores higher than another. Under the 3-specification verifier used in this run, most candidate responses tied at 3/3 and were discarded. Across the whole session, 72 candidate generations produced just **18 usable preference pairs**, and training ran for 3, 6, and 3 optimizer steps respectively. DPO loss finished at 0.688, 0.700, and 0.694 — all within 0.008 of `ln 2 ≈ 0.693`, the loss at initialization when the policy is still identical to the reference. The model barely moved.
 
 ![Preference-pair yield per training round](results/figures/preference_pair_yield.png)
 
@@ -305,7 +305,7 @@ Note that `visualize_training.py --demo` and `generate_sample_data_for_testing()
 These are the concrete blockers to reproducing the paper's result, in rough order of how much they matter:
 
 1. **Preference-pair starvation.** 72 candidate generations yielded 18 pairs. Most candidates tie, so there is nothing for DPO to learn from. More prompts (`prompts.json` now has 85, `prompts_200.json` has 200) and a scorer with finer resolution are the obvious fixes.
-2. **Training runs are far too short.** 3–6 optimizer steps at LoRA rank defaults will not move a 1.1B model. DPO loss never left ≈0.69.
+2. **Training runs are far too short.** 3–6 optimizer steps at LoRA rank defaults will not move a 1.1B model. DPO loss never left the neighbourhood of `ln 2`.
 3. **Evaluation is too small and unseeded to detect an effect.** 20 generations over 10 prompts gives a 1.7 pp quantization and an observed 5.0 pp spread on identical weights. Detecting a change of the size the paper claims needs a fixed seed, more samples, and repeated evaluations with confidence intervals.
 4. **Base model saturates the verifier.** The base model already scores 95–100% on the 3-spec verifier, leaving no headroom. The paper's setup starts at ~60%. The 15-spec verifier at `HEAD` may fix this, but that is untested.
 5. **The verifier is text-pattern based, not a model checker.** `score_response()` at `HEAD` parses the response text and applies keyword heuristics via `parse_controller_rules()` and `check_critical_violations()`. `get_traffic_safety_specs()`, `build_product_automaton()`, and `verify_safety_specs()` are retained as no-op API stubs. `src/modelchecker/` ships `traffic_specs.smv` and a `nuXmv` binary, but no Python file invokes either. Satisfaction rates therefore measure phrasing as much as policy safety, and a 3/3 score is not a proof of safety.

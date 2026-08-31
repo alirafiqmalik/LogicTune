@@ -160,8 +160,10 @@
     }
   ],
   "repeated_measurements": {
-    "_comment": "The same two checkpoints were scored more than once during the session, which gives a direct read on run-to-run spread.",
+    "_comment": "The same two checkpoints were scored more than once during the session, which gives a direct read on run-to-run spread. spread_pct is derived from measurements_score (the exact integer totals), not from the rounded measurements_pct, so it is a multiple of 1/60 = 1.667 pp.",
     "TinyLlama/TinyLlama-1.1B-Chat-v1.0": {
+      "measurements_score": [58, 57, 60],
+      "max_possible_score": 60,
       "measurements_pct": [96.7, 95.0, 100.0],
       "spread_pct": 5.0,
       "source": [
@@ -171,6 +173,8 @@
       ]
     },
     "dpo_model": {
+      "measurements_score": [56, 55],
+      "max_possible_score": 60,
       "measurements_pct": [93.3, 91.7],
       "spread_pct": 1.7,
       "source": [
