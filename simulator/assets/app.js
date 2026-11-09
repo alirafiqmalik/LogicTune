@@ -55,7 +55,7 @@
     const ci = h.change_ci95_pp ? `95% CI ${h.change_ci95_pp[0].toFixed(1)} to ${h.change_ci95_pp[1].toFixed(1)} pts` : "";
     const p = h.p_value !== undefined ? ` · p ${h.p_value < 0.001 ? "< 0.001" : "= " + h.p_value.toFixed(3)}` : "";
     const tiles = [
-      { label: "Base model satisfaction", value: pct(base.satisfaction_rate), delta: `${base.label}`, key: "base" },
+      { label: "Base model satisfaction", value: pct(base.satisfaction_rate), delta: "before DPO fine-tuning", key: "base" },
       { label: "Fine-tuned satisfaction", value: pct(fin.satisfaction_rate), delta: `after ${h.final_round} DPO round${h.final_round === 1 ? "" : "s"}`, key: "ft" },
       { label: "Change", value: `${h.change_pp >= 0 ? "+" : "−"}${Math.abs(h.change_pp).toFixed(1)} pts`, delta: ci + p },
       { label: "All 15 specs satisfied", value: `${pct(base.full_pass_rate)} → ${pct(fin.full_pass_rate)}`, delta: "share of responses, base → fine-tuned" },
