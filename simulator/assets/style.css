@@ -193,12 +193,21 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .downloads { font-size: 13px; color: var(--text-3); margin: 10px 0 0; }
 .steps { padding-left: 20px; font-size: 14px; }
 .steps li { margin-bottom: 6px; }
-.spec-table td:nth-child(2) { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; white-space: nowrap; }
+.spec-table td:nth-child(1) { white-space: nowrap; }
+.spec-table td:nth-child(2) { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; overflow-wrap: break-word; }
 .foot { color: var(--text-3); font-size: 12.5px; padding-bottom: 28px; }
 
 @media (max-width: 900px) {
   .lanes, .grid2 { grid-template-columns: 1fr; }
   .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  /* spec table: formula on its own line, meaning below it, no sideways scroll */
+  .spec-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .spec-table tr { display: grid; grid-template-columns: 2.5em minmax(0, 1fr); column-gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .spec-table td { border: 0; padding: 0; }
+  .spec-table td:nth-child(1) { grid-row: span 2; font-weight: 600; }
+  .spec-table td:nth-child(3) { color: var(--text-2); margin-top: 2px; }
 }
 @media (max-width: 520px) {
   .tile .value { font-size: 22px; }
