@@ -5,7 +5,7 @@
  */
 (function () {
   "use strict";
-  const { Lane } = window.LogicTuneSim;
+  const { Lane, hasTrafficLight, FAIR_GREEN_TICK } = window.LogicTuneSim;
   const Charts = window.LogicTuneCharts;
   const pct = Charts.pct;
   const SPEC_LABEL = (id) => "φ" + id.split("_")[1];
@@ -206,7 +206,8 @@
     renderScenarioSelect();
     state.lanes.forEach((L, i) => { $(".model", L.node).value = state.models[i]; });
     const scen = scenarioById(state.scenario);
-    $("#scenario-text").innerHTML = `${esc(scen.text)} <span class="tag">intent: ${esc(scen.intent)}</span>${scen.heldout ? '<span class="tag">held out of training</span>' : ""}`;
+    const noLight = hasTrafficLight(scen.id) ? "" : `<span class="note">No traffic light: the controller reads <code>green_traffic_light</code> as false (not green) until ${FAIR_GREEN_TICK / 60} s, when it turns true as the model checker's fairness assumption requires.</span>`;
+    $("#scenario-text").innerHTML = `${esc(scen.text)} <span class="tag">intent: ${esc(scen.intent)}</span>${scen.heldout ? '<span class="tag">held out of training</span>' : ""}${noLight}`;
     renderStrip();
     resetAll();
     writeHash();

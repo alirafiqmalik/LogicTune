@@ -20,10 +20,7 @@
   // Environment changes over time (ticks at 1x speed, 60 ticks per second).
   // The model checker assumes a fair environment: infinitely often the light
   // is green and the intersection is clear (environment.py, FAIRNESS). Every
-  // timeline therefore ends in that state. Scenarios 10, 11, 12 and 16 have no
-  // traffic light (green_traffic_light is false, "not green"); it turns true
-  // at 6 s, after cross traffic has cleared, as fairness requires.
-  const FAIR_GREEN = { t: 360, set: { green_traffic_light: true } };
+  // timeline therefore ends in that state (see timelineFor).
   const TIMELINE = {
     1: [{ t: 240, set: { pedestrian_in_front: false } }],
     2: [{ t: 240, set: { pedestrian_at_right: false } }],
@@ -32,13 +29,22 @@
     5: [{ t: 300, set: { car_from_left: false } }],
     8: [{ t: 300, set: { green_traffic_light: true } }],
     9: [{ t: 300, set: { car_from_left: false } }],
-    10: [{ t: 300, set: { car_from_left: false } }, FAIR_GREEN],
-    11: [FAIR_GREEN],
-    12: [{ t: 240, set: { car_from_left: false } }, FAIR_GREEN],
+    10: [{ t: 300, set: { car_from_left: false } }],
+    12: [{ t: 240, set: { car_from_left: false } }],
     13: [{ t: 300, set: { green_traffic_light: true } }],
     15: [{ t: 300, set: { side_car: false } }],
-    16: [{ t: 300, set: { car_from_right: false } }, FAIR_GREEN],
+    16: [{ t: 300, set: { car_from_right: false } }],
   };
+
+  // Scenarios whose text describes no traffic light (stop sign only, or an
+  // uncontrolled intersection). green_traffic_light is false ("not green")
+  // there; it turns true at 6 s, after cross traffic has cleared, as fairness
+  // requires. They draw a "no light" indicator instead of a signal head.
+  const NO_LIGHT = [10, 11, 12, 16];
+  const FAIR_GREEN_TICK = 360;
+  const hasTrafficLight = (scenarioId) => !NO_LIGHT.includes(scenarioId);
+  const timelineFor = (scenarioId) => (TIMELINE[scenarioId] || []).concat(
+    hasTrafficLight(scenarioId) ? [] : [{ t: FAIR_GREEN_TICK, set: { green_traffic_light: true } }]);
   const EPISODE_TICKS = 900;
   const STOP_SIGN_HOLD = 45; // ticks stopped at the line before the sign counts as obeyed
 
@@ -150,7 +156,7 @@
       this.vars = Object.fromEntries(PROPS.map((p) => [p, !!init[p]]));
       this.t = 0;
       this.car = { x: EGO_X, y: START_Y, heading: -Math.PI / 2, speed: 0, mode: "approach", target: null, turnLeft: 0 };
-      this.events = (TIMELINE[this.scenarioId] || []).map((e) => ({ t: e.t, set: { ...e.set }, fired: false }));
+      this.events = timelineFor(this.scenarioId).map((e) => ({ t: e.t, set: { ...e.set }, fired: false }));
       this.stoppedAtLine = 0;
       this.signServed = false;
       this.decision = decide(this.rules, this.vars);
@@ -289,7 +295,16 @@
     drawSignals(ctx, k) {
       const shift = this.hasMergeLane() ? 2 * LANE : 0; // keep the signal off the extra lane
       const v = this.vars, x = C + ROAD / 2 + 46 + shift, y = STOP_Y + 26;
-      if (this.scenarioId !== 16) {
+      if (!hasTrafficLight(this.scenarioId)) {
+        // No physical light: show what the controller reads, green_traffic_light
+        // false ("not green") until the fairness event makes it true.
+        ctx.strokeStyle = k.signalBox; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+        roundRect(ctx, x, y, 30, 30, 6); ctx.stroke(); ctx.setLineDash([]);
+        lamp(ctx, x + 15, y + 15, v.green_traffic_light ? k.green : k.lampOff);
+        ctx.fillStyle = k.signalBox; ctx.font = "bold 9px system-ui, sans-serif"; ctx.textAlign = "center";
+        ctx.fillText("NO LIGHT", x + 15, y + 44);
+        ctx.fillText(v.green_traffic_light ? "green" : "not green", x + 15, y + 56);
+      } else {
         ctx.fillStyle = k.signalBox; roundRect(ctx, x, y, 30, 74, 6); ctx.fill();
         lamp(ctx, x + 15, y + 15, !v.green_traffic_light ? k.red : k.lampOff);
         lamp(ctx, x + 15, y + 37, k.lampOff);
@@ -338,7 +353,7 @@
     ctx.strokeStyle = k.ground; ctx.lineWidth = 2; ctx.stroke();
   }
 
-  const api = { Lane, decide, evalGuard, actorsAt, PROPS, MONITORS, EPISODE_TICKS };
+  const api = { Lane, decide, evalGuard, actorsAt, hasTrafficLight, PROPS, MONITORS, EPISODE_TICKS, FAIR_GREEN_TICK };
   global.LogicTuneSim = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api; // Node tests
 })(typeof window !== "undefined" ? window : globalThis);

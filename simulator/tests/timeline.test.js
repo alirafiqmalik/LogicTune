@@ -36,3 +36,19 @@ test("controllers that satisfy all 15 specifications never end the episode waiti
     }
   }
 });
+
+test("only the stop-sign and uncontrolled scenarios (10, 11, 12, 16) have no traffic light", () => {
+  const noLight = data.scenarios.filter((s) => !sim.hasTrafficLight(s.id)).map((s) => s.id);
+  assert.deepEqual(noLight, [10, 11, 12, 16]);
+  for (const id of noLight) {
+    assert.ok(!data.scenarios.find((s) => s.id === id).init.green_traffic_light, `scenario ${id} starts not green`);
+  }
+});
+
+test("without a traffic light, green_traffic_light turns true at the fairness time", () => {
+  const l = lane(16, [rule(T, "stop")]);
+  while (l.t < sim.FAIR_GREEN_TICK - 1) l.step(1);
+  assert.equal(l.vars.green_traffic_light, false);
+  l.step(1);
+  assert.equal(l.vars.green_traffic_light, true);
+});

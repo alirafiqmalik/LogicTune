@@ -107,6 +107,7 @@ select { background: var(--surface); border: 1px solid var(--border); border-rad
 .ctl-group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .speed { flex-direction: row !important; align-items: center; gap: 8px !important; }
 .scenario-text { margin: 10px 0; font-size: 14px; color: var(--text-2); }
+.scenario-text .note { display: block; margin-top: 4px; font-size: 13px; }
 .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--border); color: var(--text-2); margin-left: 6px; }
 
 .strip-wrap { margin: 6px 0 14px; }
