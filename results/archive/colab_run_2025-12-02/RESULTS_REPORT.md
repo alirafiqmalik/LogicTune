@@ -1,8 +1,10 @@
 # LogicTune — Results Report
 
+> **Archived.** This report describes the 2025-12-02 Colab run, which used the old 3-specification keyword scorer. It is kept as history. The current pipeline, verifier, and results are described in the [repository README](../../../README.md).
+
 **Scope.** This report documents what the LogicTune pipeline actually measured, and answers three outstanding review questions about the claims in the README.
 
-**Source of truth.** One Colab session, **2025-12-02**, on an **NVIDIA L4**, whose cell outputs are saved in [`Colab_Experiments.ipynb`](Colab_Experiments.ipynb). The notebook has not been re-run. Its numbers are transcribed into [`results/colab_run_2025-12-02/run_results.json`](results/colab_run_2025-12-02/run_results.json), and every figure in this repository is rendered from that JSON by [`results/plot_colab_results.py`](results/plot_colab_results.py).
+**Source of truth.** One Colab session, **2025-12-02**, on an **NVIDIA L4**, whose cell outputs are saved in [`Colab_Experiments.ipynb`](Colab_Experiments.ipynb). The notebook has not been re-run. Its numbers are transcribed into [`run_results.json`](run_results.json), and every figure in this repository is rendered from that JSON by [`plot_colab_results.py`](plot_colab_results.py).
 
 **Version caveat that applies to everything below.** The notebook cloned the repository at commit `69c17e3`. At that commit the verifier checked **3** safety specifications per response, not the 15 (Φ1–Φ15) documented in the README. That is why every evaluation reports a score out of 60 for 20 responses. The 15-specification suite was introduced afterwards in `112185a` and **has never been run on a GPU.**
 
