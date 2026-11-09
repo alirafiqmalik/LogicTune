@@ -248,3 +248,28 @@ def test_action_vocabulary_lists_are_not_rules():
 def test_inline_rule_with_colon_opens_a_block():
     ctrl = extract_rules("If there is no cross-traffic present, stop:\n\n1. Stop\n2. Wait")
     assert all(g == "!(car_from_left | car_from_right)" for g, _ in _gs(ctrl))
+
+
+def test_or_list_with_final_or():
+    ctrl = extract_rules("If green_traffic_light, opposite_car, or stop_sign is true, stop.")
+    assert _gs(ctrl) == [("green_traffic_light | opposite_car | stop_sign", "stop")]
+
+
+def test_condition_action_label_pairs():
+    ctrl = extract_rules("Condition:\n- Stop sign present\n- Car from the left\n\nAction:\n- Stop\n\nCondition: no cross-traffic\nAction: Go straight")
+    assert _gs(ctrl) == [("stop_sign & car_from_left", "stop"), ("!(car_from_left | car_from_right)", "go_straight")]
+
+
+def test_condition_labels_and_action_labels():
+    ctrl = extract_rules("Condition: Green light but a pedestrian is on the left while the car wants to turn left.\n\nAction: Stop")
+    assert ctrl.rules[0].guard.to_smv() != "TRUE" and ctrl.rules[0].action == "stop"
+    ctrl = extract_rules("Red light:\n- Stop")
+    assert _gs(ctrl) == [("!green_traffic_light", "stop")]
+    ctrl = extract_rules("1. Stop:\n- Stop sign is present\n- Green light")
+    assert _gs(ctrl) == [("stop_sign & green_traffic_light", "stop")]
+
+
+def test_long_preamble_with_colon_is_not_a_header():
+    ctrl = extract_rules("Here are the rules for the car at an intersection with a stop sign and cross-traffic:\n\n"
+                         "1. If stop_sign, stop.\n2. Otherwise, go_straight.")
+    assert _gs(ctrl) == [("stop_sign", "stop"), ("!stop_sign", "go_straight")]

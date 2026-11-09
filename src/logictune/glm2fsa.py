@@ -618,6 +618,8 @@ def _parse_conditional(clause: str) -> Optional[Tuple[str, str]]:
         if pos is None:
             return False
         prefix = act[:pos]
+        if re.match(r"^\s*(?:or|and|nor|but)\b", prefix, re.IGNORECASE):
+            return False  # "A, B, or C is true, stop": the remainder continues the condition
         return len(prefix.split()) <= 6 and "§" not in _normalize_condition(prefix)
 
     good = [c for c in cands if parse_action(c[1]) is None and starts_with_action(c[2])]
@@ -733,8 +735,23 @@ def extract_rules(response: str) -> Controller:
                 del rules[i]
         bare_run.clear()
 
+    pending_action: Optional[Tuple[int, str, List[str], str]] = None  # ("Stop:", conditions...)
+
+    def flush_pending() -> None:
+        nonlocal pending_action
+        if pending_action is not None:
+            _, act, conds, text = pending_action
+            guard = mk_and([parse_condition(c, unknown) for c in conds]) if conds else TRUE
+            add_rule([guard], act, text + ": " + "; ".join(conds))
+            pending_action = None
+
     skipping = False  # inside an "Example:" / "Note:" block
     for item in _lines(response):
+        if pending_action is not None:
+            if item is not _BLOCK_END and item[0] > pending_action[0] and not _is_action_line(item[1]):
+                pending_action[2].append(item[1])
+                continue
+            flush_pending()
         if item is not _BLOCK_END and not (_IMPERATIVE.match(item[1]) and _parse_conditional(item[1]) is None):
             end_bare_run()
         if item is not _BLOCK_END and skipping:
@@ -756,6 +773,17 @@ def extract_rules(response: str) -> Controller:
             prev_header_indent = None
             continue
         indent, line, numbered = item
+        # "Condition: A" / "Action: X" label pairs read as "If A:" / "Then: X";
+        # a condition label such as "Red light:" reads as "If red light:".
+        forced_header = False
+        m_cond = re.match(r"^conditions?\s*:\s*(.*)$", line, re.IGNORECASE)
+        if m_cond:
+            rest = m_cond.group(1).strip().rstrip(".")
+            line, forced_header = ("If:" if not rest else f"If {rest}:"), bool(rest)
+        line = re.sub(r"^actions?\s*:\s*", "Then: ", line, flags=re.IGNORECASE)
+        if (line.endswith(":") and len(line.split()) <= 6 and not _IF.match(line) and not _ELSE.match(line)
+                and not _THEN.match(line) and parse_action(line) is None and "§" in _normalize_condition(line[:-1])):
+            line, forced_header = f"If {line[:-1]}:", True
 
         if collecting is not None:
             if _THEN.match(line) or _ELSE.match(line) or _is_action_line(line):
@@ -818,14 +846,14 @@ def extract_rules(response: str) -> Controller:
             continue
 
         m = _IF.match(line)
-        if m and _parse_conditional(line) is None:
+        if m and (forced_header or _parse_conditional(line) is None):
             rest = m.group(1).strip()
             if rest in ("", ":"):
                 close_for(indent, numbered, True)
                 collecting = (indent, [], numbered)
                 continue
             has_sep = bool(_TRAILING_SEP.search(rest))
-            if has_sep or parse_action(rest) is None:
+            if forced_header or has_sep or parse_action(rest) is None:
                 cond_text = _TRAILING_SEP.sub("", rest)
                 # "If A, the car should follow:" -> the tail is not part of the condition
                 head, _, tail = cond_text.rpartition(",")
@@ -841,6 +869,12 @@ def extract_rules(response: str) -> Controller:
                 prev_header_indent = indent
                 awaiting_body = True
             continue  # "If <cond> <action>" without any separator: not parseable
+
+        # "Stop:" followed by condition lines: the action applies under those conditions.
+        if line.endswith(":") and _is_action_line(line[:-1]) and _parse_conditional(line[:-1]) is None:
+            close_for(indent, numbered, False)
+            pending_action = (indent, parse_action(line[:-1]), [], line[:-1])
+            continue
 
         # A plain line: one or more rules in the current context.
         close_for(indent, numbered, False)
@@ -864,6 +898,7 @@ def extract_rules(response: str) -> Controller:
         if last_if_guard is not None and line.rstrip().endswith(":"):
             stack.append([indent, last_if_guard, numbered, False])
             awaiting_body = True
+    flush_pending()
     end_bare_run()
     unknown_atoms = {v: k for k, v in unknown.items() if any(v in r.guard.atoms() for r in rules)}
     return Controller(rules=rules, unknown_atoms=unknown_atoms)
