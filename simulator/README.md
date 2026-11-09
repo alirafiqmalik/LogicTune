@@ -46,10 +46,12 @@ node --test "simulator/tests/*.test.js"
 | File | Role |
 |---|---|
 | [`index.html`](index.html) | Page layout and lane template |
-| [`assets/sim.js`](assets/sim.js) | Scenario timelines, rule evaluation, car motion, runtime monitor, canvas drawing |
-| [`assets/app.js`](assets/app.js) | Loads `index.json` and `replay.json`, wires lanes, strip, URL state (`#r=…&s=…&i=…`) |
+| [`assets/sim.js`](assets/sim.js) | Scenario timelines, rule evaluation, car and other road-user motion, runtime monitor, episode outcome, canvas drawing |
+| [`assets/replaystate.js`](assets/replaystate.js) | Pure helpers for `app.js`: sample lookup, URL state parsing and validation (`#r=…&s=…&i=…&a=…&b=…`), data folder choice |
+| [`assets/app.js`](assets/app.js) | Loads `index.json` and `replay.json`, wires lanes, strip, URL state and hash navigation |
 | [`assets/charts.js`](assets/charts.js) | Dependency-free SVG charts with tooltips |
 | [`assets/style.css`](assets/style.css) | Light and dark themes |
+| [`tests/`](tests) | `node --test` suite for `sim.js` and `replaystate.js` (no dependencies) |
 
 - [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) runs on every push to `main` that touches the simulator, the results, or the package.
 - It first runs [`scripts/check_results.py`](../scripts/check_results.py), which re-parses and re-verifies every recorded response and fails the deploy if any score differs from the recorded one.

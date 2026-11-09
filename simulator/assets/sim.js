@@ -108,7 +108,9 @@
       turn: { after: START_Y - (C + ROAD / 2), radius: LANE }, clear: START_Y - (C + ROAD / 2) + (LANE * Math.PI) / 2,
     },
   };
-  const OFF_CANVAS = 30; // an actor this far outside the canvas is gone
+  // True when a point is more than `margin` outside the canvas.
+  const outside = (p, margin) => p.x < -margin || p.x > W + margin || p.y < -margin || p.y > W + margin;
+  const ACTOR_GONE = 30; // an actor this far outside the canvas is removed
 
   // Actors visible at tick t of a scenario: [{ prop, kind, x, y, heading }].
   function actorsAt(scenarioId, init, t) {
@@ -118,7 +120,7 @@
       const ev = (TIMELINE[scenarioId] || []).find((e) => e.set[prop] === false);
       const leaveAt = ev ? ev.t - a.clear / a.speed : Infinity;
       const p = poseAlong(a, Math.max(0, t - leaveAt) * a.speed);
-      if (p.x < -OFF_CANVAS || p.x > W + OFF_CANVAS || p.y < -OFF_CANVAS || p.y > W + OFF_CANVAS) continue;
+      if (outside(p, ACTOR_GONE)) continue;
       out.push({ prop, kind: a.kind, x: round(p.x), y: round(p.y), heading: p.heading });
     }
     return out;
@@ -137,11 +139,10 @@
   const round = (x) => Math.round(x * 1e6) / 1e6; // keep exact lane coordinates exact
 
   // How an episode ended, from where the car is.
-  const CAR_HALF = 20; // half the car's length
-  const offCanvas = (c) => c.x < -CAR_HALF || c.x > W + CAR_HALF || c.y < -CAR_HALF || c.y > W + CAR_HALF;
+  const CAR_HALF = 20; // half the car's length: beyond this the car is out of view
   const inBox = (u) => u >= C - ROAD / 2 && u <= C + ROAD / 2;
   function classifyOutcome(c) {
-    if (offCanvas(c)) return "crossed";
+    if (outside(c, CAR_HALF)) return "crossed";
     if (inBox(c.x) && inBox(c.y)) return "in intersection";
     if (c.mode === "approach" && c.y > C + ROAD / 2) return "waiting";
     return "exit road";
@@ -193,6 +194,12 @@
     // Other road users at the current tick (identical in every lane of a scenario).
     actors() { return actorsAt(this.scenarioId, this.scenario && this.scenario.init, this.t); }
 
+    // Nothing left to show: the car is done, the timeline has played out and
+    // other road users have left (or the episode is over).
+    finished() {
+      return this.t >= EPISODE_TICKS || (this.done && this.events.every((e) => e.fired) && this.actors().length === 0);
+    }
+
     // The extra right-hand lane exists only in scenarios with a side car.
     hasMergeLane() { return !!(this.scenario && this.scenario.init && this.scenario.init.side_car); }
 
@@ -240,7 +247,7 @@
         }
       }
       this.move(a, dt);
-      if (offCanvas(this.car)) this.finish("crossed");
+      if (outside(this.car, CAR_HALF)) this.finish("crossed");
       else if (this.t >= EPISODE_TICKS) this.finish(classifyOutcome(this.car));
     }
 

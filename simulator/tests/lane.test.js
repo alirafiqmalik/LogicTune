@@ -36,3 +36,17 @@ test("time stops at the end of the episode", () => {
   assert.equal(l.t, sim.EPISODE_TICKS);
   assert.equal(l.outcome, "waiting");
 });
+
+test("playback ends only after the shared timeline has played out and other road users have left", () => {
+  const l = untilDone(lane(1, [rule(T, "go_straight")])); // drives through the pedestrian, done long before 4 s
+  assert.ok(l.t < 240);
+  assert.equal(l.finished(), false, "the pedestrian has not cleared yet");
+  while (l.actors().length > 0) { assert.equal(l.finished(), false); l.step(1); }
+  assert.equal(l.finished(), true);
+  assert.ok(l.t < sim.EPISODE_TICKS);
+});
+
+test("an episode is finished at its last tick in any case", () => {
+  const l = run(lane(13, [rule(T, "stop")]), sim.EPISODE_TICKS);
+  assert.equal(l.finished(), true);
+});

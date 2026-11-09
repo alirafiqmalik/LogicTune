@@ -22,6 +22,16 @@
     return Object.fromEntries(STATE_KEYS.map((k) => [k, p.get(k)]));
   }
 
+  // The element id a plain section anchor (#results) points to, else null.
+  function sectionId(hash) {
+    if (parseHash(hash)) return null;
+    try {
+      return decodeURIComponent(String(hash || "").replace(/^#/, "")) || null;
+    } catch (e) {
+      return null; // malformed percent-encoding
+    }
+  }
+
   const nonNegInt = (raw) => (raw != null && /^\d+$/.test(raw) ? Number(raw) : null);
 
   // Validated { scenario, sample, models }; anything invalid falls back to
@@ -53,7 +63,7 @@
     return /\/simulator\/(index\.html)?$/.test(pathname) ? [local, deployed] : [deployed, local];
   }
 
-  const api = { samplesFor, parseHash, resolveHash, formatHash, dataPrefixes };
+  const api = { samplesFor, parseHash, sectionId, resolveHash, formatHash, dataPrefixes };
   global.LogicTuneState = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api; // Node tests
 })(typeof window !== "undefined" ? window : globalThis);

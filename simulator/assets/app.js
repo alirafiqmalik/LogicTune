@@ -136,13 +136,16 @@
     pill.textContent = `${sample.score}/15 specs`;
     // verdict chips: focusable list items with the formula in a tooltip
     const verdicts = $(".verdicts", node);
-    verdicts.innerHTML = state.data.specs.map((s, j) => {
-      const ok = sample.specs[j] === 1, verdict = ok ? "satisfied" : "violated";
-      return `<span class="chip ${ok ? "pass" : "fail"}" role="listitem" aria-label="${SPEC_LABEL(s.id)} ${verdict}: ${esc(s.description)}"><span class="ic" aria-hidden="true">${ok ? "✓" : "✗"}</span>${SPEC_LABEL(s.id)}</span>`;
-    }).join("");
-    [...verdicts.children].forEach((chip, j) => {
-      const s = state.data.specs[j], verdict = sample.specs[j] === 1 ? "satisfied" : "violated";
-      Charts.bindTip(chip, `<b>${SPEC_LABEL(s.id)} ${verdict}</b><br>${esc(s.formula)}<br>${esc(s.description)}`);
+    verdicts.innerHTML = "";
+    state.data.specs.forEach((s, j) => {
+      const ok = sample.specs[j] === 1, name = `${SPEC_LABEL(s.id)} ${ok ? "satisfied" : "violated"}`;
+      const chip = document.createElement("span");
+      chip.className = `chip ${ok ? "pass" : "fail"}`;
+      chip.setAttribute("role", "listitem");
+      chip.setAttribute("aria-label", `${name}: ${s.description}`);
+      chip.innerHTML = `<span class="ic" aria-hidden="true">${ok ? "✓" : "✗"}</span>${SPEC_LABEL(s.id)}`;
+      Charts.bindTip(chip, `<b>${name}</b><br>${esc(s.formula)}<br>${esc(s.description)}`);
+      verdicts.appendChild(chip);
     });
     // rules
     const rules = sample.rules;
@@ -174,7 +177,8 @@
     const act = $(".hud-action", node);
     act.textContent = d.action ? d.action : "NO RULE";
     act.classList.toggle("undef", !d.action);
-    $(".hud-rule", node).textContent = d.rule >= 0 ? `rule ${d.rule + 1} · t = ${(lane.t / 60).toFixed(1)} s` : `undefined · t = ${(lane.t / 60).toFixed(1)} s`;
+    const t = `t = ${(lane.t / 60).toFixed(1)} s`;
+    $(".hud-rule", node).textContent = lane.done ? `last decision · ${t}` : d.rule >= 0 ? `rule ${d.rule + 1} · ${t}` : `undefined · ${t}`;
     if (L.lastRule !== d.rule) {
       node.querySelectorAll(".rules li").forEach((li, i) => li.classList.toggle("hit", i === d.rule));
       revealRule($(".rules", node), d.rule);
@@ -196,16 +200,17 @@
   // -------------------------------------------------------------- playback
   let raf = null;
   function frame() {
-    // Every lane steps until both cars are done, so a lane whose car has left
-    // keeps showing the shared timeline (lights, other road users, time).
+    // Every lane steps until both cars are done and the shared timeline has
+    // played out, so a lane whose car has left keeps showing the same lights,
+    // other road users and time as the other lane.
     state.lanes.forEach((L) => L.lane.step(state.speed));
     state.lanes.forEach((L, i) => { L.lane.draw(); updateLaneHud(i); });
-    const running = state.lanes.some((L) => !L.lane.done);
+    const running = state.lanes.some((L) => !L.lane.finished());
     if (running && state.playing) raf = requestAnimationFrame(frame);
     else { state.playing = false; $("#play").textContent = "Play"; }
   }
   function play() {
-    if (state.lanes.every((L) => L.lane.done)) state.lanes.forEach((L) => L.lane.reset());
+    if (state.lanes.every((L) => L.lane.finished())) state.lanes.forEach((L) => L.lane.reset());
     state.playing = !state.playing;
     $("#play").textContent = state.playing ? "Pause" : "Play";
     if (state.playing) raf = requestAnimationFrame(frame);
@@ -294,7 +299,8 @@
   function onHashChange() {
     const p = ReplayState.parseHash(location.hash);
     if (!p) {
-      scrollToSection(decodeURIComponent(location.hash.slice(1)));
+      const id = ReplayState.sectionId(location.hash);
+      if (id) scrollToSection(id);
       writeHash();
     } else if (p.r && p.r !== state.run.id && state.index.runs.some((r) => r.id === p.r)) {
       selectRun(p.r, true);
@@ -312,6 +318,7 @@
     const ms = state.data.models;
     state.models = [ms[0].id, ms[ms.length - 1].id];
     if (fromHash) readHash();
+    else { state.scenario = state.data.scenarios[0].id; state.sample = 0; }
     document.querySelectorAll("[data-file]").forEach((a) => { a.href = runDir() + a.dataset.file; });
     renderTiles();
     populateModelSelects();
@@ -331,8 +338,8 @@
     }
     const runSel = $("#run");
     runSel.innerHTML = state.index.runs.map((r) => `<option value="${r.id}">${esc(r.base_model)} · ${pct(r.base_satisfaction)} → ${pct(r.final_satisfaction)}</option>`).join("");
-    runSel.addEventListener("change", () => { state.scenario = 1; state.sample = 0; selectRun(runSel.value, false); });
-    const hashRun = new URLSearchParams(location.hash.slice(1)).get("r");
+    runSel.addEventListener("change", () => selectRun(runSel.value, false));
+    const hashRun = (ReplayState.parseHash(location.hash) || {}).r;
     const scenSel = $("#scenario");
     buildLanes();
     $("#play").addEventListener("click", play);

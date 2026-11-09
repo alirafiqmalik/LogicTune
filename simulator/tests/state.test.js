@@ -55,3 +55,11 @@ test("the data folder is chosen from the page location: deployed site vs reposit
   assert.deepEqual(st.dataPrefixes("/LogicTune/index.html"), deployed);
   assert.deepEqual(st.dataPrefixes("/"), deployed);
 });
+
+test("a section anchor names its section; a malformed one names nothing and does not throw", () => {
+  assert.equal(st.sectionId("#results"), "results");
+  assert.equal(st.sectionId("#%E0"), null);
+  assert.equal(st.sectionId("#%"), null);
+  assert.equal(st.sectionId(""), null);
+  assert.equal(st.sectionId("#r=qwen2.5-3b&s=1"), null, "replay state is not a section");
+});

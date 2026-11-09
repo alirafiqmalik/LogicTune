@@ -3,7 +3,7 @@
 // (src/logictune/environment.py, exported into replay.json).
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { sim, data, loadReplay, lane, rule, T } = require("./helpers.js");
+const { sim, data, loadReplay, lane, replayLane, playOut, rule, T } = require("./helpers.js");
 
 test("the simulator observes the same propositions as the model checker", () => {
   assert.deepEqual(sim.PROPS, data.environment.propositions);
@@ -28,12 +28,17 @@ test("controllers that satisfy all 15 specifications never end the episode waiti
     const d = loadReplay(run);
     for (const [model, samples] of Object.entries(d.samples)) {
       for (const x of samples.filter((x) => x.score === 15)) {
-        const l = new sim.Lane(null, {});
-        l.load(d.scenarios.find((s) => s.id === x.scenario_id), x.rules, x.scenario_id);
-        while (l.t < sim.EPISODE_TICKS) l.step(1);
+        const l = playOut(replayLane(x, d));
         assert.notEqual(l.outcome, "waiting", `${run} ${model} s${x.scenario_id} template ${x.template} sample ${x.sample_idx}`);
       }
     }
+  }
+});
+
+test("a scenario has no traffic light exactly when prompts.py gives it neither a green nor a red light", () => {
+  for (const s of data.scenarios) {
+    const described = !!s.init.green_traffic_light || /red light/i.test(s.text);
+    assert.equal(sim.hasTrafficLight(s.id), described, `scenario ${s.id}: ${s.text}`);
   }
 });
 

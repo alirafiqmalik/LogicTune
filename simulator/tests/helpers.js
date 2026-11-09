@@ -27,13 +27,17 @@ function lane(scenarioId, rules) {
   return l;
 }
 
+// A headless lane replaying one recorded sample of replay data d.
+function replayLane(x, d = data) {
+  const l = new sim.Lane(null, {});
+  l.load(d.scenarios.find((s) => s.id === x.scenario_id), x.rules, x.scenario_id);
+  return l;
+}
+
 // A headless lane replaying recorded sample i (the strip order: template, then sample index).
 function recorded(model, scenarioId, i, d = data) {
-  const x = d.samples[model].filter((s) => s.scenario_id === scenarioId)
-    .sort((a, b) => a.template - b.template || a.sample_idx - b.sample_idx)[i];
-  const l = new sim.Lane(null, {});
-  l.load(d.scenarios.find((s) => s.id === scenarioId), x.rules, scenarioId);
-  return l;
+  return replayLane(d.samples[model].filter((s) => s.scenario_id === scenarioId)
+    .sort((a, b) => a.template - b.template || a.sample_idx - b.sample_idx)[i], d);
 }
 
 // Play a lane to the end of the episode with a given playback speed (ticks per frame).
@@ -42,4 +46,4 @@ function playOut(l, speed = 1) {
   return l;
 }
 
-module.exports = { sim, data, scenario, loadReplay, lane, recorded, playOut, v, not, and, T, rule, ROOT };
+module.exports = { sim, data, scenario, loadReplay, lane, replayLane, recorded, playOut, v, not, and, T, rule, ROOT };
