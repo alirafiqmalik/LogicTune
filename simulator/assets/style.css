@@ -100,7 +100,7 @@ section[tabindex="-1"]:focus-visible { outline: none; } /* sections focused by t
 .run-bar { margin: 16px 0 0; font-size: 12.5px; color: var(--text-2); }
 .run-bar label { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; max-width: 100%; }
 .run-bar select { max-width: 100%; min-width: 0; }
-.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 10px 0 6px; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 12px 0 8px; }
 .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
 .tile .label { font-size: 12.5px; color: var(--text-2); }
 .tile .value { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
@@ -108,12 +108,12 @@ section[tabindex="-1"]:focus-visible { outline: none; } /* sections focused by t
 .tile .key { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: 0; }
 .key.base, .sw.base { background: var(--series-base); }
 .key.ft, .sw.ft { background: var(--series-ft); }
-.prov { font-size: 12.5px; color: var(--text-3); margin: 4px 0 16px; }
+.prov { font-size: 12.5px; color: var(--text-3); margin: 0 0 20px; }
 
 /* header links scroll a section to the top: keep it clear of the sticky header */
 .card { scroll-margin-top: 80px; }
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 18px; }
-.card-head { margin-bottom: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 24px; }
+.card-head { margin-bottom: 16px; }
 .controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: end; }
 .controls label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--text-2); min-width: 0; max-width: 100%; }
 .controls > label { flex: 1 1 360px; }
@@ -219,6 +219,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .lanes { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
+  /* cards nest lanes and chart cards with their own padding: give the canvas the width */
+  .card { padding: 14px 12px; margin-bottom: 16px; }
   /* sample strip: label above its cells, so each row holds ten cells instead of five */
   .strip { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
   .strip .cells + .who { margin-top: 8px; }
