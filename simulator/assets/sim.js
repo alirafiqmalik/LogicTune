@@ -70,6 +70,7 @@
   const W = 600, C = 300, ROAD = 120, LANE = 30;
   const EGO_X = C + LANE, STOP_Y = C + ROAD / 2 + 50, START_Y = STOP_Y + 24; // car waits at the stop line
   const R_LEFT = 60, R_RIGHT = 30;
+  const MERGE_X = C + ROAD / 2 + LANE; // centre of the extra lane drawn when a side car is present
 
   // Other road users. Each one is present while its proposition is true. When
   // the timeline clears the proposition, the actor has just driven (or walked)
@@ -85,6 +86,13 @@
     pedestrian_in_front: { kind: "person", x: C + LANE, y: C + ROAD / 2 + 27, heading: 0, speed: 0.6, clear: LANE + 12 },
     pedestrian_at_right: { kind: "person", x: C + ROAD / 2 + 27, y: C + LANE, heading: Math.PI / 2, speed: 0.6, clear: LANE + 12 },
     pedestrian_at_left: { kind: "person", x: C - ROAD / 2 - 27, y: C - LANE, heading: -Math.PI / 2, speed: 0.6, clear: LANE + 12 },
+    // Scenario 15 adds a second northbound lane right of the ego (a right-turn
+    // lane, drawn only there). The side car waits level with the ego, then
+    // turns right onto the east road; it is clear once the turn is complete.
+    side_car: {
+      kind: "car", x: MERGE_X, y: START_Y, heading: -Math.PI / 2, speed: 1.6,
+      turn: { after: START_Y - (C + ROAD / 2), radius: LANE }, clear: START_Y - (C + ROAD / 2) + (LANE * Math.PI) / 2,
+    },
   };
   const OFF_CANVAS = 30; // an actor this far outside the canvas is gone
 
@@ -95,12 +103,22 @@
       if (!(init && init[prop])) continue;
       const ev = (TIMELINE[scenarioId] || []).find((e) => e.set[prop] === false);
       const leaveAt = ev ? ev.t - a.clear / a.speed : Infinity;
-      const d = Math.max(0, t - leaveAt) * a.speed;
-      const x = a.x + Math.cos(a.heading) * d, y = a.y + Math.sin(a.heading) * d;
-      if (x < -OFF_CANVAS || x > W + OFF_CANVAS || y < -OFF_CANVAS || y > W + OFF_CANVAS) continue;
-      out.push({ prop, kind: a.kind, x: round(x), y: round(y), heading: a.heading });
+      const p = poseAlong(a, Math.max(0, t - leaveAt) * a.speed);
+      if (p.x < -OFF_CANVAS || p.x > W + OFF_CANVAS || p.y < -OFF_CANVAS || p.y > W + OFF_CANVAS) continue;
+      out.push({ prop, kind: a.kind, x: round(p.x), y: round(p.y), heading: p.heading });
     }
     return out;
+  }
+
+  // Pose after travelling d units: straight ahead, or straight then a 90° right turn.
+  function poseAlong(a, d) {
+    const line = (x, y, h, s) => ({ x: x + Math.cos(h) * s, y: y + Math.sin(h) * s, heading: h });
+    if (!a.turn || d <= a.turn.after) return line(a.x, a.y, a.heading, d);
+    const p = line(a.x, a.y, a.heading, a.turn.after), r = a.turn.radius;
+    const cx = p.x + r * Math.cos(p.heading + Math.PI / 2), cy = p.y + r * Math.sin(p.heading + Math.PI / 2);
+    const theta = Math.min((d - a.turn.after) / r, Math.PI / 2), phi = p.heading - Math.PI / 2 + theta;
+    const q = { x: cx + r * Math.cos(phi), y: cy + r * Math.sin(phi), heading: p.heading + theta };
+    return line(q.x, q.y, q.heading, Math.max(0, d - a.turn.after - (r * Math.PI) / 2));
   }
   const round = (x) => Math.round(x * 1e6) / 1e6; // keep exact lane coordinates exact
 
@@ -136,6 +154,12 @@
       this.flash = 0;
       this.draw();
     }
+
+    // Other road users at the current tick (identical in every lane of a scenario).
+    actors() { return actorsAt(this.scenarioId, this.scenario && this.scenario.init, this.t); }
+
+    // The extra right-hand lane exists only in scenarios with a side car.
+    hasMergeLane() { return !!(this.scenario && this.scenario.init && this.scenario.init.side_car); }
 
     step(dt) {
       if (this.done) return;
@@ -215,9 +239,13 @@
       ctx.fillStyle = k.road;
       ctx.fillRect(0, C - ROAD / 2, W, ROAD);
       ctx.fillRect(C - ROAD / 2, 0, ROAD, W);
+      const merge = this.hasMergeLane();
+      if (merge) ctx.fillRect(C + ROAD / 2 - 1, C + ROAD / 2 - 1, 2 * LANE + 1, W - C - ROAD / 2 + 1); // overlap: no seam
       ctx.strokeStyle = k.marking; ctx.lineWidth = 2; ctx.setLineDash([14, 14]);
       ctx.beginPath(); ctx.moveTo(0, C); ctx.lineTo(C - ROAD / 2, C); ctx.moveTo(C + ROAD / 2, C); ctx.lineTo(W, C);
-      ctx.moveTo(C, 0); ctx.lineTo(C, C - ROAD / 2); ctx.moveTo(C, C + ROAD / 2); ctx.lineTo(C, W); ctx.stroke();
+      ctx.moveTo(C, 0); ctx.lineTo(C, C - ROAD / 2); ctx.moveTo(C, C + ROAD / 2); ctx.lineTo(C, W);
+      if (merge) { ctx.moveTo(C + ROAD / 2, STOP_Y); ctx.lineTo(C + ROAD / 2, W); }
+      ctx.stroke();
       ctx.setLineDash([]);
       // crosswalks
       ctx.fillStyle = k.crosswalk;
@@ -226,9 +254,10 @@
         ctx.fillRect(C - ROAD / 2 + 4 + i * 20, C - ROAD / 2 - 40, 12, 26);
         ctx.fillRect(C - ROAD / 2 - 40, C - ROAD / 2 + 4 + i * 20, 26, 12);
         ctx.fillRect(C + ROAD / 2 + 14, C - ROAD / 2 + 4 + i * 20, 26, 12);
+        if (merge && i < 3) ctx.fillRect(C + ROAD / 2 + 4 + i * 20, C + ROAD / 2 + 14, 12, 26);
       }
       // stop line
-      ctx.fillStyle = k.marking; ctx.fillRect(C, STOP_Y - 2, ROAD / 2, 4);
+      ctx.fillStyle = k.marking; ctx.fillRect(C, STOP_Y - 2, ROAD / 2 + (merge ? 2 * LANE : 0), 4);
       this.drawSignals(ctx, k);
       this.drawActors(ctx, k);
       this.drawCar(ctx, this.car.x, this.car.y, this.car.heading, k.ego, k.egoGlass);
@@ -239,7 +268,8 @@
     }
 
     drawSignals(ctx, k) {
-      const v = this.vars, x = C + ROAD / 2 + 46, y = STOP_Y + 26;
+      const shift = this.hasMergeLane() ? 2 * LANE : 0; // keep the signal off the extra lane
+      const v = this.vars, x = C + ROAD / 2 + 46 + shift, y = STOP_Y + 26;
       if (this.scenarioId !== 16) {
         ctx.fillStyle = k.signalBox; roundRect(ctx, x, y, 30, 74, 6); ctx.fill();
         lamp(ctx, x + 15, y + 15, !v.green_traffic_light ? k.red : k.lampOff);
@@ -251,7 +281,7 @@
         }
       }
       if (v.stop_sign || this.signServed) {
-        const sx = C + ROAD / 2 + 22, sy = STOP_Y + 6, r = 15;
+        const sx = C + ROAD / 2 + 22 + shift, sy = STOP_Y + 6, r = 15;
         ctx.globalAlpha = v.stop_sign ? 1 : 0.35;
         ctx.fillStyle = k.red; ctx.beginPath();
         for (let i = 0; i < 8; i++) {
@@ -265,12 +295,10 @@
     }
 
     drawActors(ctx, k) {
-      const v = this.vars;
-      for (const a of actorsAt(this.scenarioId, this.scenario && this.scenario.init, this.t)) {
+      for (const a of this.actors()) {
         if (a.kind === "person") person(ctx, a.x, a.y, k);
         else this.drawCar(ctx, a.x, a.y, a.heading, k.other, k.egoGlass);
       }
-      if (v.side_car) this.drawCar(ctx, C + ROAD / 2 + 16, this.car.y, -Math.PI / 2, k.other, k.egoGlass);
     }
 
     drawCar(ctx, x, y, heading, body, glass) {

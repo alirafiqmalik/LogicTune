@@ -2,7 +2,7 @@
 // Other road users: where they are drawn over the shared scenario timeline.
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { sim, data, scenario } = require("./helpers.js");
+const { sim, data, scenario, lane, rule, T } = require("./helpers.js");
 
 const W = 600, BOX = [240, 360]; // canvas size and intersection box (logical units)
 const actor = (sid, prop, t) => sim.actorsAt(sid, scenario(sid).init, t).find((a) => a.prop === prop);
@@ -64,4 +64,38 @@ test("no actor vanishes on the canvas: each moves continuously until it is off-s
 
 test("scenarios without other road users draw none", () => {
   assert.deepEqual(sim.actorsAt(7, scenario(7).init, 0), []);
+});
+
+// Scenario 15: "A side car is present during lane-keeping, merging, or turning near the intersection."
+const MERGE = [360, 420]; // extra northbound lane drawn right of the ego's lane in scenario 15
+const onAsphalt15 = (a) =>
+  (a.y >= 240 && a.y <= 360) || (a.x >= 240 && a.x <= 360) || (a.x >= MERGE[0] && a.x <= MERGE[1] && a.y >= 360);
+const inBox = (a) => a.x > BOX[0] && a.x < BOX[1] && a.y > BOX[0] && a.y < BOX[1];
+
+test("the side car starts beside the ego car, on asphalt in the adjacent northbound lane", () => {
+  const a = actor(15, "side_car", 0);
+  assert.equal(a.kind, "car");
+  assert.equal(a.x, 390);
+  assert.equal(a.heading, -Math.PI / 2);
+  assert.equal(a.y, lane(15, []).car.y, "level with the ego car's start position");
+});
+
+test("the side car stays on the road, never enters the intersection box, and turns right onto the east road", () => {
+  for (let t = 0; t <= sim.EPISODE_TICKS; t++) {
+    const a = actor(15, "side_car", t);
+    if (!a) break;
+    assert.ok(onAsphalt15(a), `t=${t}: side car off the road at (${a.x}, ${a.y})`);
+    assert.ok(!inBox(a), `t=${t}: side car inside the intersection box`);
+  }
+  const atClear = actor(15, "side_car", 300);
+  assert.equal(atClear.heading, 0, "it has completed its right turn when side_car turns false");
+  assert.equal(atClear.y, 330);
+});
+
+test("both lanes show the side car in the same place, whatever their ego car does", () => {
+  const parked = lane(15, []), driving = lane(15, [rule(T, "go_straight")]);
+  for (let i = 0; i < 120; i++) { parked.step(1); driving.step(1); }
+  assert.ok(driving.car.y < parked.car.y - 50, "the ego cars are in different places");
+  assert.deepEqual(parked.actors(), driving.actors());
+  assert.deepEqual(parked.actors().find((a) => a.prop === "side_car"), actor(15, "side_car", 120));
 });
