@@ -63,7 +63,7 @@ def fig_rounds(s, out):
         ax.plot(x, y, color=INK2, linewidth=2, solid_capstyle="round", zorder=2)
         colors = [BASE] + [MID] * (len(x) - 2) + [FT] if len(x) > 1 else [BASE]
         ax.scatter(x, y, s=60, c=colors, edgecolors=SURFACE, linewidths=2, zorder=3)
-        ax.annotate(f"{y[0]:.1%}", (x[0], y[0]), textcoords="offset points", xytext=(10, -16) if y[-1] > y[0] + 0.05 else (10, 8), color=INK, fontsize=10)
+        ax.annotate(f"{y[0]:.1%}", (x[0], y[0]), textcoords="offset points", xytext=(10, -16) if (y[-1] > y[0] + 0.05 and y[0] > 0.1) else (10, 8), color=INK, fontsize=10)
         ax.annotate(f"{y[-1]:.1%}", (x[-1], y[-1]), textcoords="offset points", xytext=(-8, 8), ha="right", color=INK, fontsize=10, fontweight="bold")
         ax.set_xticks(x, ["Base"] + [f"Round {i}" for i in x[1:]])
         ax.set_ylim(0, 1)

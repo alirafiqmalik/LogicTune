@@ -252,5 +252,7 @@ def update_index(results_root: str, run_id: str, summary: Dict, make_default: bo
     idx["runs"] = [r for r in idx["runs"] if r["id"] != run_id] + [entry]
     if make_default or "default" not in idx:
         idx["default"] = run_id
+    # the default run is listed first (README table, simulator run selector)
+    idx["runs"].sort(key=lambda r: r["id"] != idx["default"])
     idx_path.write_text(json.dumps(idx, indent=2))
     return idx
