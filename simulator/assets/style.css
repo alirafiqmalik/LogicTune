@@ -107,6 +107,8 @@ section[tabindex="-1"]:focus-visible { outline: none; } /* sections focused by t
 .key.ft, .sw.ft { background: var(--series-ft); }
 .prov { font-size: 12.5px; color: var(--text-3); margin: 4px 0 16px; }
 
+/* header links scroll a section to the top: keep it clear of the sticky header */
+.card { scroll-margin-top: 80px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 18px; }
 .card-head { margin-bottom: 12px; }
 .controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: end; }
@@ -203,6 +205,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 @media (max-width: 900px) {
   /* the header wraps to two or three rows here; sticky, it would cover the replay */
   .top { position: static; }
+  .card { scroll-margin-top: 12px; }
   .lanes, .grid2 { grid-template-columns: 1fr; }
   .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
