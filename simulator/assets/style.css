@@ -176,7 +176,7 @@ canvas { width: 100%; height: 100%; display: block; }
 .chart .grid { stroke: var(--grid); stroke-width: 1; }
 .chart .tick { fill: var(--text-3); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .chart .tick.held { fill: var(--text); font-weight: 600; }
-.chart .value { fill: var(--text); font-size: 12.5px; font-weight: 600; }
+.chart .value { fill: var(--text); font-size: 12.5px; font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; } /* halo keeps the label legible where it crosses the line or band */
 .chart .delta { fill: var(--text-2); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .chart .line { fill: none; stroke: var(--text-2); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .chart .band { fill: var(--band); }
