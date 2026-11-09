@@ -236,7 +236,10 @@ def verify_controller(ctrl: Controller, engine: str = "explicit") -> Verificatio
     else:
         notes: List[str] = []
         if engine == "explicit":
-            verdicts = _explicit_verdicts(ctrl)
+            try:
+                verdicts = _explicit_verdicts(ctrl)
+            except ValueError:  # more than MAX_UNKNOWN_ATOMS_EXPLICIT free atoms
+                verdicts = run_nuxmv(smv)
         elif engine == "nuxmv":
             verdicts = run_nuxmv(smv)
         elif engine == "both":

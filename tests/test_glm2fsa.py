@@ -213,3 +213,38 @@ def test_chained_if_conditions_are_a_conjunction():
         ("(!green_traffic_light | !green_left_turn_light) & opposite_car & car_from_left", "stop"),
         ("!stop_sign & green_traffic_light", "go_straight"),
     ]
+
+
+def test_body_at_header_indentation_stays_in_the_block():
+    # Answers like these were read as "always stop" before (reward hacking in round 2).
+    ctrl = extract_rules("If\n\n- green_left_turn_light\n- opposite_car\n\nThen\n\n- stop")
+    assert _gs(ctrl) == [("green_left_turn_light & opposite_car", "stop")]
+    ctrl = extract_rules("When the light is red:\nStop at the line.\nWait for green.")
+    assert [g for g, _ in _gs(ctrl)] == ["!green_traffic_light", "!green_traffic_light"]
+    ctrl = extract_rules("If:\n- stop_sign\n\nThen:\n\nStop:\n- stop")
+    assert all(g == "stop_sign" for g, _ in _gs(ctrl))
+
+
+def test_numbered_siblings_and_deeper_bodies_close_blocks():
+    ctrl = extract_rules("1. If stop_sign:\n   - stop\n2. Go straight.")
+    assert _gs(ctrl) == [("stop_sign", "stop"), ("TRUE", "go_straight")]
+    ctrl = extract_rules("If stop_sign:\n  - stop\nGo straight.")
+    assert _gs(ctrl) == [("stop_sign", "stop"), ("TRUE", "go_straight")]
+
+
+def test_condition_list_with_turn_light_nouns():
+    ctrl = extract_rules("If\n\n1. Green traffic light\n2. Green left turn light\n3. Opposite car\n\nThen\n\n1. Stop")
+    assert _gs(ctrl) == [("green_traffic_light & green_left_turn_light & opposite_car", "stop")]
+    assert parse_action("check the left-turn arrow") is None
+
+
+def test_action_vocabulary_lists_are_not_rules():
+    ctrl = extract_rules("Actions:\n1. Stop\n2. Go straight ahead\n3. Turn left\n4. Turn right\n\nIf pedestrian_in_front, stop.")
+    assert _gs(ctrl) == [("pedestrian_in_front", "stop")]
+    ctrl = extract_rules("If pedestrian_in_front, stop.\nOtherwise, go_straight.\nStop.")  # one bare action is a rule
+    assert _gs(ctrl)[-1] == ("TRUE", "stop")
+
+
+def test_inline_rule_with_colon_opens_a_block():
+    ctrl = extract_rules("If there is no cross-traffic present, stop:\n\n1. Stop\n2. Wait")
+    assert all(g == "!(car_from_left | car_from_right)" for g, _ in _gs(ctrl))

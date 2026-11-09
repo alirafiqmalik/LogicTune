@@ -87,3 +87,11 @@ def test_smv_contains_every_spec():
     for s in SPEC_IDS:
         assert f"LTLSPEC NAME {s} :=" in smv
     assert "JUSTICE" in smv
+
+
+@pytest.mark.skipif(find_nuxmv() is None, reason="nuXmv binary not available")
+def test_many_free_atoms_fall_back_to_nuxmv():
+    words = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda omicron".split()
+    text = "\n".join(f"{i}. If the {w} lamp is lit, stop." for i, w in enumerate(words, 1)) + "\n13. Otherwise, go_straight."
+    res = verify_response(text, engine="explicit")
+    assert len(res.controller.unknown_atoms) > 10 and 0 <= res.score <= 15
