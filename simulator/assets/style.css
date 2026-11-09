@@ -35,6 +35,7 @@
   --sim-glass: #cde2fb;
   --sim-ped: #eda100;
   --sim-box: #23262b;
+  --sim-label: #23262b; /* text and outline drawn on --sim-ground (NO LIGHT marker) */
   --sim-off: #3a3d42;
 }
 @media (prefers-color-scheme: dark) {
@@ -47,7 +48,7 @@
     --rule-hit: rgba(57, 135, 229, 0.2);
     --score-hi: #2d68b8; --score-hi-ink: var(--text);
     --sim-ground: #262823; --sim-road: #3c3f43; --sim-marking: #d8d8d3; --sim-crosswalk: rgba(255,255,255,0.35);
-    --sim-ego: #3987e5; --sim-other: #e66767; --sim-glass: #b7d3f6; --sim-ped: #fab219; --sim-box: #0d0e10; --sim-off: #2a2c30;
+    --sim-ego: #3987e5; --sim-other: #e66767; --sim-glass: #b7d3f6; --sim-ped: #fab219; --sim-box: #0d0e10; --sim-off: #2a2c30; --sim-label: #c3c2b7;
   }
 }
 :root[data-theme="dark"] {
@@ -59,7 +60,7 @@
   --rule-hit: rgba(57, 135, 229, 0.2);
   --score-hi: #2d68b8; --score-hi-ink: var(--text);
   --sim-ground: #262823; --sim-road: #3c3f43; --sim-marking: #d8d8d3; --sim-crosswalk: rgba(255,255,255,0.35);
-  --sim-ego: #3987e5; --sim-other: #e66767; --sim-glass: #b7d3f6; --sim-ped: #fab219; --sim-box: #0d0e10; --sim-off: #2a2c30;
+  --sim-ego: #3987e5; --sim-other: #e66767; --sim-glass: #b7d3f6; --sim-ped: #fab219; --sim-box: #0d0e10; --sim-off: #2a2c30; --sim-label: #c3c2b7;
 }
 
 * { box-sizing: border-box; }

@@ -334,10 +334,13 @@
       if (!hasTrafficLight(this.scenarioId)) {
         // No physical light: show what the controller reads, green_traffic_light
         // false ("not green") until the fairness event makes it true.
-        ctx.strokeStyle = k.signalBox; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+        // Drawn on the ground, so it uses the label colour (the dark signal-box
+        // colour would vanish on the dark-theme ground).
+        const ink = k.signalLabel || k.signalBox;
+        ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
         roundRect(ctx, x, y, 30, 30, 6); ctx.stroke(); ctx.setLineDash([]);
         lamp(ctx, x + 15, y + 15, v.green_traffic_light ? k.green : k.lampOff);
-        ctx.fillStyle = k.signalBox; ctx.font = "bold 9px system-ui, sans-serif"; ctx.textAlign = "center";
+        ctx.fillStyle = ink; ctx.font = "bold 9px system-ui, sans-serif"; ctx.textAlign = "center";
         ctx.fillText("NO LIGHT", x + 15, y + 44);
         ctx.fillText(v.green_traffic_light ? "green" : "not green", x + 15, y + 56);
       } else {

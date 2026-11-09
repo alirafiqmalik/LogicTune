@@ -35,7 +35,7 @@
     return {
       ground: v("--sim-ground"), road: v("--sim-road"), marking: v("--sim-marking"), crosswalk: v("--sim-crosswalk"),
       ego: v("--sim-ego"), other: v("--sim-other"), egoGlass: v("--sim-glass"), pedestrian: v("--sim-ped"),
-      signalBox: v("--sim-box"), lampOff: v("--sim-off"), red: "#e34948", green: "#22c55e", critical: v("--critical"),
+      signalBox: v("--sim-box"), signalLabel: v("--sim-label"), lampOff: v("--sim-off"), red: "#e34948", green: "#22c55e", critical: v("--critical"),
     };
   }
   let colors = null;
