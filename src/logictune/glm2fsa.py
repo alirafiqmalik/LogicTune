@@ -549,6 +549,12 @@ _SPLITTERS = [r",?\s+then\s+", r"\s*(?:->|=>|→)\s*", r"\s*:\s+", r",\s*"]
 
 
 _BLOCK_END = object()
+_IF = re.compile(rf"^{_COND_HEAD}\b\s*(.*)$", re.IGNORECASE | re.DOTALL)
+_ELSE_IF = re.compile(r"^(?:else\s*,?\s*if|elif|elsif|otherwise\s*,?\s*if)\b\s*(.*)$", re.IGNORECASE | re.DOTALL)
+_ELSE = re.compile(r"^(?:else|otherwise|in\s+all\s+other\s+cases|in\s+any\s+other\s+case|by\s+default)\b[\s,:]*(.*)$", re.IGNORECASE | re.DOTALL)
+_THEN = re.compile(r"^then\b[\s,:]*(.*)$", re.IGNORECASE | re.DOTALL)
+_NON_RULE_LABEL = re.compile(r"^(?:examples?|for\s+example|note|notes|explanation|e\.g\.|sample(?:\s+input|\s+output)?|input|output|solution|justification)\b[^.]*:\s*\S?.*$|^(?:examples?|note|explanation|solution)\s*:?\s*$", re.IGNORECASE)
+_TRAILING_SEP = re.compile(r"\s*(?:,?\s*then\s*:?|,|:)\s*$", re.IGNORECASE)
 
 
 def _lines(response: str):
@@ -559,11 +565,14 @@ def _lines(response: str):
             yield _BLOCK_END
             continue
         indent = len(raw) - len(raw.lstrip())
-        if re.match(r"^\s*[-*•>]\s", raw):
+        if re.match(r"^\s*[-*\u2022>]\s", raw):
             indent += 1  # a bullet is a child of a header at the same column
         line = _LIST_MARKER.sub("", raw.strip(), count=1).strip()
         line = _LIST_MARKER.sub("", line, count=1).strip()
-        if line:
+        # code style: "} else if (x) {"  ->  "else if (x)"
+        line = re.sub(r"^\}\s*", "", line)
+        line = re.sub(r"\s*\{\s*$", "", line).strip()
+        if line and line not in ("}", "};", "end", "endif", "end if"):
             yield indent, line
 
 
@@ -576,9 +585,9 @@ def _parse_conditional(clause: str) -> Optional[Tuple[str, str]]:
     """Split "If <cond>, <action>" at the best separator.
 
     Preferred split: the earliest one where the condition names no action and
-    the remainder starts with an action (within its first eight words). This
-    keeps comma-separated condition lists ("If a, b, c, then stop") and
-    comma-separated action lists ("If a, stop and wait, then go") apart.
+    the remainder starts with an action. This keeps comma-separated
+    condition lists ("If a, b, c, then stop") and comma-separated action
+    lists ("If a, stop and wait, then go") apart.
     """
     m = re.match(rf"^{_COND_HEAD}\s+(.+)$", clause, re.IGNORECASE | re.DOTALL)
     if not m:
@@ -592,6 +601,7 @@ def _parse_conditional(clause: str) -> Optional[Tuple[str, str]]:
                 cands.append((mm.start(), cond, act))
     if not cands:
         return None
+
     def starts_with_action(act: str) -> bool:
         pos = _action_start(act)
         if pos is None:
@@ -604,21 +614,13 @@ def _parse_conditional(clause: str) -> Optional[Tuple[str, str]]:
     return cond, act
 
 
-def _header_condition(line: str) -> Optional[str]:
-    """A condition line without an action, e.g. "If the light is green, then:"."""
-    m = re.match(rf"^{_COND_HEAD}\s+(.+?)\s*(?:,?\s*then\s*:?|,|:)\s*$", line, re.IGNORECASE | re.DOTALL)
-    if m and _parse_conditional(line) is None:
-        return m.group(1)
-    return None
-
-
 def _parse_clause(clause: str, unknown: Dict[str, str]) -> Tuple[Optional[Expr], Optional[str]]:
     low = clause.lower()
     # 1. "If/When <cond>, <action>"
     ca = _parse_conditional(clause)
     if ca is not None:
         return parse_condition(ca[0], unknown), parse_action(ca[1])
-    # 2. "Otherwise/Else <action>"
+    # 2. "Otherwise/Else <action>" (inside a sentence list; first-match order makes TRUE correct)
     if re.match(r"^(?:otherwise|else|in\s+all\s+other\s+cases|in\s+any\s+other\s+case|by\s+default|default)\b", low):
         return TRUE, parse_action(clause)
     # 3. "<cond> -> <action>" with formal identifiers
@@ -631,7 +633,7 @@ def _parse_clause(clause: str, unknown: Dict[str, str]) -> Tuple[Optional[Expr],
         cond = parse_condition(m.group(3), unknown)
         guard = mk_not(cond) if m.group(2).lower() in ("unless", "until") else cond
         return guard, parse_action(m.group(1))
-    # 5. Unconditional imperative ("Stop.", "Turn right.")
+    # 5. Unconditional imperative ("Stop.", "Turn right.", "stop();")
     if re.match(r"^(?:turn_left|turn_right|go_straight|stop|wait|halt|yield|go|proceed|continue|turn|drive|remain|stay|come\s+to\s+a)\b", low):
         return TRUE, parse_action(clause)
     return None, None
@@ -641,46 +643,166 @@ def extract_rules(response: str) -> Controller:
     """
     Parse a model response into a :class:`Controller`.
 
-    Nested conditions are supported: a line that is only a condition
-    ("If A," / "When A:") opens a block, and rules inside the block (indented
-    lines, a following "then ..." line, or lines up to the next blank line)
-    get the conjunction of the enclosing conditions.
+    Supported structure, in addition to one-line rules:
+
+    * Condition headers that open a block: ``If A,`` / ``When A:`` /
+      ``If A`` (no action on the line) / ``If:`` followed by bullet
+      conditions (joined with AND). Rules inside the block (indented or
+      bulleted lines, a ``then ...`` line, or lines up to the next blank
+      line) get the conjunction of the enclosing conditions.
+    * ``Else if B`` / ``Else`` / ``Otherwise`` continue the last ``If`` chain
+      at the same indentation: their guards are ``not(A) and B`` and
+      ``not(A or B)``.
+    * Code-style braces are ignored.
     """
     unknown: Dict[str, str] = {}
     rules: List[Rule] = []
     stack: List[Tuple[int, Expr]] = []
+    chains: Dict[int, List[Expr]] = {}
+    collecting: Optional[Tuple[int, List[str]]] = None
+    awaiting_body = False
     prev_header_indent: Optional[int] = None
+
+    def pop_to(indent: int) -> None:
+        while stack and stack[-1][0] >= indent:
+            stack.pop()
+
+    def chain_key(indent: int) -> Optional[int]:
+        keys = [k for k in chains if k <= indent]
+        return indent if indent in chains else (max(keys) if keys else None)
+
+    def add_rule(parts: List[Expr], action: Optional[str], text: str) -> None:
+        if action in ACTIONS:
+            ctx = [c for _, c in stack]
+            label = f"[{' & '.join(c.to_text() for c in ctx)}] {text}" if ctx else text
+            rules.append(Rule(guard=mk_and(ctx + parts), action=action, text=label[:300]))
+
+    def finish_collecting() -> None:
+        nonlocal collecting, awaiting_body
+        ci, texts = collecting
+        cond = mk_and([parse_condition(t, unknown) for t in texts]) if texts else TRUE
+        pop_to(ci)
+        stack.append((ci, cond))
+        chains[ci] = [cond]
+        collecting = None
+        awaiting_body = True
+
+    skipping = False  # inside an "Example:" / "Note:" block
     for item in _lines(response):
-        if item is _BLOCK_END:
+        if item is not _BLOCK_END and skipping:
+            if not _IF.match(item[1]):
+                continue
+            skipping = False
+        if item is not _BLOCK_END and _NON_RULE_LABEL.match(item[1]):
+            skipping = True
             stack.clear()
+            collecting, awaiting_body, prev_header_indent = None, False, None
+            continue
+        if item is _BLOCK_END:
+            if collecting is not None:
+                finish_collecting()
+            if not awaiting_body:
+                stack.clear()
             prev_header_indent = None
             continue
         indent, line = item
-        then_m = re.match(r"^then\b[\s,:]*", line, re.IGNORECASE)
-        if then_m and not line[then_m.end():].strip():
-            continue  # bare "then:" keeps the open header for the next (indented) line
-        header = None if then_m else _header_condition(line)
-        chained = header is not None and prev_header_indent is not None and indent == prev_header_indent
-        if not then_m and not chained:
-            while stack and stack[-1][0] >= indent:
+
+        if collecting is not None:
+            if _THEN.match(line) or _ELSE.match(line) or parse_action(line) is not None:
+                finish_collecting()
+            else:
+                collecting[1].append(line)
+                continue
+
+        m = _THEN.match(line)
+        if m:
+            body = m.group(1).strip()
+            if not body:
+                awaiting_body = True
+                continue  # bare "then:" keeps the open header for the next line
+            for clause in _sentences(body):
+                guard, action = _parse_clause(clause, unknown)
+                if action is None:
+                    guard, action = TRUE, parse_action(clause)
+                add_rule([guard], action, clause)
+            if stack:
                 stack.pop()
-        if header is not None:
-            stack.append((indent, parse_condition(header, unknown)))
-            prev_header_indent = indent
+            awaiting_body, prev_header_indent = False, None
             continue
+
+        m = _ELSE_IF.match(line)
+        if m:
+            key = chain_key(indent)
+            prior = chains.get(key, []) if key is not None else []
+            neg = mk_not(mk_or(prior)) if prior else TRUE
+            rest = m.group(1).strip()
+            ca = _parse_conditional("if " + rest)
+            pop_to(indent)
+            if ca is not None:
+                cond = parse_condition(ca[0], unknown)
+                add_rule([neg, cond], parse_action(ca[1]), line)
+                awaiting_body = False
+            else:
+                cond = parse_condition(_TRAILING_SEP.sub("", rest), unknown)
+                stack.append((indent, mk_and([neg, cond])))
+                awaiting_body = True
+            chains[indent if key is None else key] = prior + [cond]
+            prev_header_indent = None
+            continue
+
+        m = _ELSE.match(line)
+        if m:
+            key = chain_key(indent)
+            prior = chains.pop(key, []) if key is not None else []
+            neg = mk_not(mk_or(prior)) if prior else TRUE
+            rest = m.group(1).strip()
+            pop_to(indent)
+            action = parse_action(rest) if rest else None
+            if action is not None:
+                add_rule([neg], action, line)
+                awaiting_body = False
+            else:
+                stack.append((indent, neg))
+                awaiting_body = True
+            prev_header_indent = None
+            continue
+
+        m = _IF.match(line)
+        if m and _parse_conditional(line) is None:
+            rest = m.group(1).strip()
+            if rest in ("", ":"):
+                pop_to(indent)
+                collecting = (indent, [])
+                continue
+            has_sep = bool(_TRAILING_SEP.search(rest))
+            if has_sep or parse_action(rest) is None:
+                cond_text = _TRAILING_SEP.sub("", rest)
+                # "If A, the car should follow:" -> the tail is not part of the condition
+                head, _, tail = cond_text.rpartition(",")
+                if head and "§" not in _normalize_condition(tail) and re.search(
+                        r"\b(?:should|must|will|shall|follow|following|do|does|rules?|steps?|as follows)\b", tail, re.IGNORECASE):
+                    cond_text = head
+                cond = parse_condition(cond_text, unknown)
+                chained = prev_header_indent is not None and indent == prev_header_indent
+                if not chained:
+                    pop_to(indent)
+                stack.append((indent, cond))
+                chains[indent] = [cond]
+                prev_header_indent = indent
+                awaiting_body = True
+            continue  # "If <cond> <action>" without any separator: not parseable
+
+        # A plain line: one or more rules in the current context.
+        pop_to(indent)
         prev_header_indent = None
-        context = [c for _, c in stack]
-        body = line[then_m.end():] if then_m else line
-        for clause in _sentences(body):
+        awaiting_body = False
+        for clause in _sentences(line):
             guard, action = _parse_clause(clause, unknown)
-            if then_m and action is None:
-                action, guard = parse_action(clause), TRUE
-            if action in ACTIONS and guard is not None:
-                full = mk_and(context + [guard])
-                src = clause if not context else f"[{' & '.join(c.to_text() for c in context)}] {clause}"
-                rules.append(Rule(guard=full, action=action, text=src[:300]))
-        if then_m and stack:
-            stack.pop()
+            if guard is None or action is None:
+                continue
+            add_rule([guard], action, clause)
+            if _IF.match(clause):
+                chains[indent] = [guard]
     unknown_atoms = {v: k for k, v in unknown.items() if any(v in r.guard.atoms() for r in rules)}
     return Controller(rules=rules, unknown_atoms=unknown_atoms)
 

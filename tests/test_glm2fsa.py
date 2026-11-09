@@ -67,7 +67,7 @@ def test_rule_order_and_otherwise():
     )
     assert [r.action for r in ctrl.rules] == ["stop", "go_straight", "stop"]
     assert ctrl.rules[0].guard.to_smv() == "pedestrian_in_front"
-    assert ctrl.rules[2].guard.to_smv() == "TRUE"
+    assert ctrl.rules[2].guard.to_smv() == "!green_traffic_light"  # else of the last if
 
 
 def test_trailing_condition_and_unless():
@@ -97,7 +97,7 @@ def test_nested_conditions_by_indentation():
     )
     assert [r.guard.to_smv() for r in ctrl.rules] == [
         "green_traffic_light & pedestrian_in_front & stop_sign",
-        "green_traffic_light & pedestrian_in_front",
+        "green_traffic_light & pedestrian_in_front & !stop_sign",
         "!green_traffic_light",
     ]
 
@@ -115,7 +115,7 @@ def test_header_then_line_blocks():
 
 def test_header_with_bullet_action():
     ctrl = extract_rules("If stop_sign:\n- stop\n\nOtherwise, go_straight")
-    assert [(r.guard.to_smv(), r.action) for r in ctrl.rules] == [("stop_sign", "stop"), ("TRUE", "go_straight")]
+    assert [(r.guard.to_smv(), r.action) for r in ctrl.rules] == [("stop_sign", "stop"), ("!stop_sign", "go_straight")]
 
 
 def test_if_yes_is_not_always_true():
@@ -150,3 +150,57 @@ def test_identifier_bullets_under_headers():
 def test_rule_label_prefix():
     ctrl = extract_rules("Rule: If there is a red light, the car should stop.")
     assert (ctrl.rules[0].guard.to_smv(), ctrl.rules[0].action) == ("!green_traffic_light", "stop")
+
+
+def _gs(ctrl):
+    return [(r.guard.to_smv(), r.action) for r in ctrl.rules]
+
+
+def test_if_then_else_blocks_without_punctuation():
+    ctrl = extract_rules(
+        "If (green_traffic_light AND opposite_car)\nThen:\n- Stop\n\nElse:\n- Go straight\n"
+    )
+    assert _gs(ctrl) == [
+        ("green_traffic_light & opposite_car", "stop"),
+        ("!(green_traffic_light & opposite_car)", "go_straight"),
+    ]
+
+
+def test_else_if_chain():
+    ctrl = extract_rules(
+        "If green_left_turn_light is true,\n  stop\n\n"
+        "Else if opposite_car is true,\n  go_straight\n\n"
+        "Else,\n  turn_right"
+    )
+    assert _gs(ctrl) == [
+        ("green_left_turn_light", "stop"),
+        ("!green_left_turn_light & opposite_car", "go_straight"),
+        ("!(green_left_turn_light | opposite_car)", "turn_right"),
+    ]
+
+
+def test_if_colon_with_bullet_conditions():
+    ctrl = extract_rules("If:\n- green_traffic_light\n- green_left_turn_light\n\nThen:\n- stop\n\nElse:\n- go_straight")
+    assert _gs(ctrl) == [
+        ("green_traffic_light & green_left_turn_light", "stop"),
+        ("!(green_traffic_light & green_left_turn_light)", "go_straight"),
+    ]
+
+
+def test_code_style_braces():
+    ctrl = extract_rules("if (pedestrian_in_front) {\n  stop();\n} else if (green_traffic_light) {\n  go_straight();\n} else {\n  stop();\n}")
+    assert _gs(ctrl) == [
+        ("pedestrian_in_front", "stop"),
+        ("!pedestrian_in_front & green_traffic_light", "go_straight"),
+        ("!(pedestrian_in_front | green_traffic_light)", "stop"),
+    ]
+
+
+def test_inline_rule_then_otherwise_line():
+    ctrl = extract_rules("1. If stop_sign, stop.\n2. If green_traffic_light, go_straight.\n3. Otherwise, stop.")
+    assert _gs(ctrl)[-1] == ("!green_traffic_light", "stop")
+
+
+def test_example_blocks_are_ignored():
+    ctrl = extract_rules("If pedestrian_in_front is true, the car should follow:\n\n- Stop\n\nExample:\nGreen light: true\n\n- Go straight\n")
+    assert _gs(ctrl) == [("pedestrian_in_front", "stop")]
