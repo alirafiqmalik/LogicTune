@@ -239,7 +239,7 @@
     $("#results-hint").textContent = `Evaluation on prompts never used in training (two unseen instruction templates). Scenarios ${d.scenarios.filter((s) => s.heldout).map((s) => s.id).join(", ")} were also held out of training entirely. Held-out scenarios: ${pct(base.heldout_satisfaction)} → ${pct(fin.heldout_satisfaction)}.`;
     Charts.roundsLine($("#chart-rounds"), rounds, "satisfaction_rate", "satisfaction_ci95", "Satisfaction");
     Charts.roundsLine($("#chart-fullpass"), rounds, "full_pass_rate", null, "Full pass");
-    Charts.pairedBars($("#chart-specs"), d.specs.map((s) => ({ name: SPEC_LABEL(s.id), title: `${s.id}: ${s.formula}`, base: base.per_spec[s.id], ft: fin.per_spec[s.id] })),
+    Charts.pairedBars($("#chart-specs"), d.specs.map((s) => ({ name: SPEC_LABEL(s.id), title: `${SPEC_LABEL(s.id)}: ${esc(s.formula)}`, base: base.per_spec[s.id], ft: fin.per_spec[s.id] })),
       { label: "Per-specification satisfaction", baseLabel: base.label, ftLabel: fin.label, labelWidth: 44 });
     const baseScen = d.samples[d.models[0].id], finScen = d.samples[d.models[d.models.length - 1].id];
     const mean = (arr) => arr.reduce((a, x) => a + x.score / 15, 0) / Math.max(1, arr.length);
