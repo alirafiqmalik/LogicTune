@@ -273,6 +273,21 @@
     }));
   }
 
+  // Typing a new hash, or Back/Forward between hashes, re-applies it. A plain
+  // section anchor scrolls to its section and the replay state is restored.
+  function onHashChange() {
+    const p = ReplayState.parseHash(location.hash);
+    if (!p) {
+      scrollToSection(decodeURIComponent(location.hash.slice(1)));
+      writeHash();
+    } else if (p.r && p.r !== state.run.id && state.index.runs.some((r) => r.id === p.r)) {
+      selectRun(p.r, true);
+    } else {
+      readHash();
+      refresh();
+    }
+  }
+
   // ------------------------------------------------------------------- init
   async function selectRun(runId, fromHash) {
     state.run = state.index.runs.find((r) => r.id === runId) || state.index.runs[0];
@@ -314,6 +329,7 @@
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { colors = null; state.lanes.forEach((L) => L.lane.draw()); });
     scenSel.addEventListener("change", () => { state.scenario = +scenSel.value; state.sample = 0; refresh(); });
     await selectRun(hashRun || state.index.default, true);
+    window.addEventListener("hashchange", onHashChange);
   }
   init();
 })();
