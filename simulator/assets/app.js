@@ -344,6 +344,7 @@
     runSel.innerHTML = state.index.runs.map((r) => `<option value="${r.id}">${esc(r.base_model)} · ${pct(r.base_satisfaction)} → ${pct(r.final_satisfaction)}</option>`).join("");
     runSel.addEventListener("change", () => selectRun(runSel.value, false));
     const hashRun = (ReplayState.parseHash(location.hash) || {}).r;
+    const initialSection = ReplayState.sectionId(location.hash); // e.g. a shared #results link
     const scenSel = $("#scenario");
     buildLanes();
     $("#play").addEventListener("click", play);
@@ -356,6 +357,7 @@
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { colors = null; state.lanes.forEach((L) => L.lane.draw()); });
     scenSel.addEventListener("change", () => { state.scenario = +scenSel.value; state.sample = 0; refresh(); });
     await selectRun(hashRun || state.index.default, true);
+    if (initialSection) requestAnimationFrame(() => scrollToSection(initialSection));
     window.addEventListener("hashchange", onHashChange);
   }
   init();
