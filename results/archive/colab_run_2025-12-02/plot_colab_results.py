@@ -2,12 +2,12 @@
 Render the figures for the 2025-12-02 Colab run.
 
 This script only plots numbers transcribed into
-results/colab_run_2025-12-02/run_results.json from the saved cell outputs of
+results/archive/colab_run_2025-12-02/run_results.json from the saved cell outputs of
 Colab_Experiments.ipynb. It does not load a model, generate text, or verify
 anything, so it cannot change the results it draws.
 
 Usage:
-    python results/plot_colab_results.py
+    python results/archive/colab_run_2025-12-02/plot_colab_results.py
 """
 
 import json
@@ -19,7 +19,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-RESULTS_JSON = Path(__file__).parent / "colab_run_2025-12-02" / "run_results.json"
+RESULTS_JSON = Path(__file__).parent / "run_results.json"
 FIGURE_DIR = Path(__file__).parent / "figures"
 
 BASE_COLOR = "#4C72B0"
