@@ -19,7 +19,7 @@ import torch
 from .data_generator import read_jsonl, score_samples, write_jsonl
 from .generation import load_model, load_tokenizer, sample_responses
 from .prompts import eval_prompts
-from .stats import paired_difference, rate, full_pass, summarize_eval
+from .stats import compare, summarize_eval  # noqa: F401  (compare re-exported)
 
 
 def evaluate_model(
@@ -63,10 +63,3 @@ def evaluate_model(
           f"[{summary['satisfaction_ci95'][0]:.3f}, {summary['satisfaction_ci95'][1]:.3f}], "
           f"full pass {summary['full_pass_rate']:.3f}, parse {summary['parse_rate']:.3f}", flush=True)
     return records, summary
-
-
-def compare(base_records: List[Dict], new_records: List[Dict]) -> Dict:
-    return {
-        "satisfaction_rate": paired_difference(base_records, new_records, rate),
-        "full_pass_rate": paired_difference(base_records, new_records, full_pass),
-    }

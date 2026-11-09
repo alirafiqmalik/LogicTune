@@ -50,6 +50,14 @@ def paired_difference(base: Sequence[Dict], new: Sequence[Dict], value, n_boot: 
     return {"diff": float(d.mean()), "ci95": [float(lo), float(hi)], "p_value": p, "n_prompts": len(keys)}
 
 
+def compare(base_records: Sequence[Dict], new_records: Sequence[Dict]) -> Dict:
+    """Paired comparison of two models on the same evaluation prompts."""
+    return {
+        "satisfaction_rate": paired_difference(base_records, new_records, rate),
+        "full_pass_rate": paired_difference(base_records, new_records, full_pass),
+    }
+
+
 def rate(r: Dict) -> float:
     return r["score"] / NUM_SPECS
 

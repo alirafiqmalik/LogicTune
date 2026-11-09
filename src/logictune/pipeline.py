@@ -23,7 +23,8 @@ from typing import Dict, List
 import torch
 
 from .data_generator import build_preference_pairs, read_jsonl, score_samples, summarize_records, write_jsonl
-from .evaluator import compare, evaluate_model
+from .evaluator import evaluate_model
+from .stats import compare
 from .generation import load_model, load_tokenizer, sample_responses
 from .config import PipelineConfig
 from .prompts import train_prompts
