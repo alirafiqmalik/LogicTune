@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "runs": [
+    {
+      "id": "tinyllama-1.1b",
+      "path": "tinyllama-1.1b/",
+      "label": "TinyLlama/TinyLlama-1.1B-Chat-v1.0 - iterative DPO with formal-methods feedback",
+      "base_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+      "base_satisfaction": 0.08098039215686274,
+      "final_satisfaction": 0.7915686274509803,
+      "final_round": 3,
+      "exported_at": "2026-11-09T19:44:42+00:00"
+    }
+  ],
+  "default": "tinyllama-1.1b"
+}
