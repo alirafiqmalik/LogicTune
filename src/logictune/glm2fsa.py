@@ -490,7 +490,15 @@ def parse_condition(text: str, unknown: Optional[Dict[str, str]] = None) -> Expr
         e = _CondParser(_normalize_condition(part).split(), unknown).parse()
         if e is not None:
             exprs.append(e)
-    return mk_and(exprs) if exprs else TRUE
+    if exprs:
+        return mk_and(exprs)
+    # A condition with no content ("If there is, stop.") refers to something
+    # outside the rule; it becomes a free atom rather than "always true".
+    key = " ".join(re.findall(r"[a-z_']+", text.lower())) or "<empty>"
+    key = f"unresolved: {key}"
+    if key not in unknown:
+        unknown[key] = f"u{len(unknown)}"
+    return Var(unknown[key])
 
 
 # ---------------------------------------------------------------------------
@@ -578,11 +586,14 @@ def _lines(response: str):
         if re.match(r"^\s*[-*\u2022>]\s", raw):
             indent += 1  # a bullet is a child of a header at the same column
         numbered = bool(re.match(r"^\s*(?:(?:rule|step)\s*\d+|\d+\s*[.):\-])", raw, re.IGNORECASE))
+        is_title = bool(re.match(r"^\s*(?:[-*\u2022]\s*)?rule\s*\d*\s*[:.)\-]", raw, re.IGNORECASE))
         line = _LIST_MARKER.sub("", raw.strip(), count=1).strip()
         line = _LIST_MARKER.sub("", line, count=1).strip()
         # code style: "} else if (x) {"  ->  "else if (x)"
         line = re.sub(r"^\}\s*", "", line)
         line = re.sub(r"\s*\{\s*$", "", line).strip()
+        if is_title and len(line.split()) <= 3 and not re.search(r"\b(?:if|when|unless|until)\b", line, re.IGNORECASE):
+            continue  # "Rule: Stop" is the title of the rule that follows, not an instruction
         if line and line not in ("}", "};", "end", "endif", "end if"):
             yield indent, line, numbered
 
@@ -726,6 +737,7 @@ def extract_rules(response: str) -> Controller:
         awaiting_body = True
 
     bare_run: List[int] = []  # rule indices from consecutive bare action lines ("1. Stop / 2. Go straight")
+    bare_rules: List[Rule] = []  # every top-level unconditional action line
 
     def end_bare_run() -> None:
         # Two or more different bare actions in a row list the action vocabulary;
@@ -781,9 +793,11 @@ def extract_rules(response: str) -> Controller:
             rest = m_cond.group(1).strip().rstrip(".")
             line, forced_header = ("If:" if not rest else f"If {rest}:"), bool(rest)
         line = re.sub(r"^actions?\s*:\s*", "Then: ", line, flags=re.IGNORECASE)
-        if (line.endswith(":") and len(line.split()) <= 6 and not _IF.match(line) and not _ELSE.match(line)
-                and not _THEN.match(line) and parse_action(line) is None and "§" in _normalize_condition(line[:-1])):
-            line, forced_header = f"If {line[:-1]}:", True
+        bare_text = line[:-1] if line.endswith(":") else line
+        if (len(line.split()) <= 6 and not _IF.match(line) and not _ELSE.match(line) and not _THEN.match(line)
+                and parse_action(line) is None and "§" in _normalize_condition(bare_text)):
+            # a short condition label ("Red light:", "2. Green_left_turn_light") opens a block
+            line, forced_header = f"If {bare_text}:", True
 
         if collecting is not None:
             if _THEN.match(line) or _ELSE.match(line) or _is_action_line(line):
@@ -798,13 +812,14 @@ def extract_rules(response: str) -> Controller:
             if not body:
                 awaiting_body = True
                 continue  # bare "then:" keeps the open header for the next line
+            if not stack:
+                continue  # a "then"/"Action:" line with no open condition is not a rule
             for clause in _sentences(body):
                 guard, action = _parse_clause(clause, unknown)
                 if action is None:
                     guard, action = TRUE, parse_action(clause)
                 add_rule([guard], action, clause)
-            if stack:
-                stack.pop()
+            stack.pop()
             awaiting_body, prev_header_indent = False, None
             continue
 
@@ -871,9 +886,12 @@ def extract_rules(response: str) -> Controller:
             continue  # "If <cond> <action>" without any separator: not parseable
 
         # "Stop:" followed by condition lines: the action applies under those conditions.
-        if line.endswith(":") and _is_action_line(line[:-1]) and _parse_conditional(line[:-1]) is None:
+        m_label = re.match(r"^(.+?)\s*(?:\s(?:if|when|whenever))?\s*:?$", line, re.IGNORECASE)
+        label = re.sub(r"\s+(?:if|when|whenever)\s*:?$|:$", "", line, flags=re.IGNORECASE).strip()
+        if (label != line and m_label and _is_action_line(label) and len(label.split()) <= 4
+                and _parse_conditional(label) is None):
             close_for(indent, numbered, False)
-            pending_action = (indent, parse_action(line[:-1]), [], line[:-1])
+            pending_action = (indent, parse_action(label), [], label)
             continue
 
         # A plain line: one or more rules in the current context.
@@ -890,6 +908,7 @@ def extract_rules(response: str) -> Controller:
             add_rule([guard], action, clause)
             if top_level and guard == TRUE and _IMPERATIVE.match(clause):
                 bare_run.append(len(rules) - 1)
+                bare_rules.append(rules[-1])
             awaiting_body = False  # the open block has its body
             if _IF.match(clause):
                 chains[indent] = [guard]
@@ -900,6 +919,12 @@ def extract_rules(response: str) -> Controller:
             awaiting_body = True
     flush_pending()
     end_bare_run()
+    # A top-level unconditional action followed by more rules would make all of
+    # them dead code under first-match semantics: it is a heading ("1. Stop"),
+    # not an instruction. Only a final unconditional action is kept (a default).
+    keep_ids = {id(r) for r in rules}
+    bare_ids = {id(r) for r in bare_rules if id(r) in keep_ids}
+    rules = [r for i, r in enumerate(rules) if id(r) not in bare_ids or i == len(rules) - 1]
     unknown_atoms = {v: k for k, v in unknown.items() if any(v in r.guard.atoms() for r in rules)}
     return Controller(rules=rules, unknown_atoms=unknown_atoms)
 

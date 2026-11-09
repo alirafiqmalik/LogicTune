@@ -273,3 +273,27 @@ def test_long_preamble_with_colon_is_not_a_header():
     ctrl = extract_rules("Here are the rules for the car at an intersection with a stop sign and cross-traffic:\n\n"
                          "1. If stop_sign, stop.\n2. Otherwise, go_straight.")
     assert _gs(ctrl) == [("stop_sign", "stop"), ("!stop_sign", "go_straight")]
+
+
+def test_empty_condition_and_dangling_action_are_not_unconditional():
+    ctrl = extract_rules("This rule checks for an oncoming car. If there is, stop.")
+    assert ctrl.rules[0].guard.to_smv() != "TRUE"
+    assert extract_rules("Action: Stop").is_empty
+
+
+def test_rule_titles_and_action_if_labels():
+    ctrl = extract_rules("Rule: Stop\nCondition: opposite_car\nAction: stop")
+    assert _gs(ctrl) == [("opposite_car", "stop")]
+    ctrl = extract_rules("Stop if\n- green_traffic_light\n- opposite_car")
+    assert _gs(ctrl) == [("green_traffic_light & opposite_car", "stop")]
+    ctrl = extract_rules("Rule 1: Stop if the light is red.")
+    assert _gs(ctrl) == [("!green_traffic_light", "stop")]
+
+
+def test_action_headings_and_condition_lines():
+    ctrl = extract_rules("1. Stop\n\nIf green_left_turn_light, stop.\n\n2. Go straight\n\nIf green_traffic_light, go straight.")
+    assert _gs(ctrl) == [("green_left_turn_light", "stop"), ("green_traffic_light", "go_straight")]
+    ctrl = extract_rules("1. Green_traffic_light\n    Stop\n\n2. Opposite_car\n    Stop")
+    assert _gs(ctrl) == [("green_traffic_light", "stop"), ("opposite_car", "stop")]
+    ctrl = extract_rules("1. If pedestrian_in_front, stop.\n2. Go straight.")  # a final default stays
+    assert _gs(ctrl)[-1] == ("TRUE", "go_straight")
