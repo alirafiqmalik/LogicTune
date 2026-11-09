@@ -150,7 +150,10 @@ canvas { width: 100%; height: 100%; display: block; }
 .hud-rule { display: block; font-size: 11px; opacity: 0.75; }
 .outcome { position: absolute; left: 8px; bottom: 8px; background: rgba(15, 17, 20, 0.82); color: #fff; font-size: 12.5px; padding: 5px 9px; border-radius: 8px; }
 
-.verdicts { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 4px; margin: 10px 0; }
+/* 15 verdicts: 5 + 5 + 5 in a narrow lane, 8 + 7 in a wide one (auto-fill left a lone chip on the last row) */
+.lane { container-type: inline-size; }
+.verdicts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 10px 0; }
+@container (min-width: 460px) { .verdicts { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
 .chip { font-size: 11.5px; border-radius: 6px; padding: 3px 4px; text-align: center; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: help; font-variant-numeric: tabular-nums; }
 .chip .ic { font-weight: 700; margin-right: 2px; }
 .chip.pass .ic { color: var(--good-ink); }
