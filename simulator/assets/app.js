@@ -256,6 +256,23 @@
     });
   }
 
+  // The URL hash holds the replay state, so the header links scroll to their
+  // section without replacing it.
+  function scrollToSection(id) {
+    const target = document.getElementById(id);
+    if (!target) return false;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({ behavior: reduce ? "auto" : "smooth" });
+    if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+    target.focus({ preventScroll: true });
+    return true;
+  }
+  function initSectionLinks() {
+    document.querySelectorAll('.links a[href^="#"]').forEach((a) => a.addEventListener("click", (e) => {
+      if (scrollToSection(a.getAttribute("href").slice(1))) e.preventDefault();
+    }));
+  }
+
   // ------------------------------------------------------------------- init
   async function selectRun(runId, fromHash) {
     state.run = state.index.runs.find((r) => r.id === runId) || state.index.runs[0];
@@ -273,6 +290,7 @@
 
   async function init() {
     initTheme();
+    initSectionLinks();
     try {
       const { prefix, index } = await loadIndex();
       state.prefix = prefix; state.index = index;

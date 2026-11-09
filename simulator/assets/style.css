@@ -84,6 +84,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button.ghost { background: transparent; }
 select { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; max-width: 100%; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+section[tabindex="-1"]:focus-visible { outline: none; } /* sections focused by the header links */
 
 .run-bar { margin: 16px 0 0; font-size: 12.5px; color: var(--text-2); }
 .run-bar label { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; max-width: 100%; }
