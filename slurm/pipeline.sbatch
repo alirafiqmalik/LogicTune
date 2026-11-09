@@ -14,5 +14,5 @@ cd "$LOGICTUNE_SRC"
 RUN_DIR="$LOGICTUNE_WORK/runs/${RUN_NAME:?set RUN_NAME}"
 mkdir -p "$RUN_DIR"
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv | tee "$RUN_DIR/gpu-${SLURM_JOB_ID}.csv"
-git -C "$LOGICTUNE_SRC" rev-parse HEAD 2>/dev/null > "$RUN_DIR/source_commit.txt" || true
+(git -C "$LOGICTUNE_SRC" rev-parse HEAD 2>/dev/null || cat "$LOGICTUNE_SRC/SOURCE_COMMIT" 2>/dev/null) > "$RUN_DIR/source_commit.txt" || true
 python main.py pipeline --run-dir "$RUN_DIR" "$@"
