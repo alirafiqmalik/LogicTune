@@ -11,6 +11,9 @@ Files written:
 * ``training_curves.csv``   DPO log history (loss, reward margins, accuracies)
 * ``replay.json``           everything the simulator needs to replay recorded controllers
 
+``update_index`` adds the run to ``<results>/index.json`` so the simulator,
+the figure script, and the result check can find every exported run.
+
 Only light dependencies (no PyTorch), so it runs on a laptop or in CI.
 """
 
@@ -225,3 +228,26 @@ def export_run(run_dir: str, out_dir: str = "results/latest", label: Optional[st
     print(f"exported {run} -> {out} ({len(models)} models, "
           f"{sum(len(v) for v in samples_by_model.values())} evaluated responses)")
     return summary
+
+
+def update_index(results_root: str, run_id: str, summary: Dict, make_default: bool = False) -> Dict:
+    """Add or replace one run in ``<results_root>/index.json``."""
+    root = Path(results_root)
+    idx_path = root / "index.json"
+    idx = json.loads(idx_path.read_text()) if idx_path.exists() else {"schema_version": SCHEMA_VERSION, "runs": []}
+    h = summary["headline"]
+    entry = {
+        "id": run_id,
+        "path": f"{run_id}/",
+        "label": summary["label"],
+        "base_model": h["base_model"],
+        "base_satisfaction": h["base_satisfaction"],
+        "final_satisfaction": h["final_satisfaction"],
+        "final_round": h["final_round"],
+        "exported_at": summary["provenance"].get("exported_at"),
+    }
+    idx["runs"] = [r for r in idx["runs"] if r["id"] != run_id] + [entry]
+    if make_default or "default" not in idx:
+        idx["default"] = run_id
+    idx_path.write_text(json.dumps(idx, indent=2))
+    return idx

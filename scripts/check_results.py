@@ -1,7 +1,8 @@
 """
 Re-verify the committed results.
 
-Every response in results/latest/eval_samples.csv is parsed and model
+For every run listed in results/latest/index.json, every response in
+eval_samples.csv is parsed and model
 checked again, and the per-model satisfaction rates are recomputed. The
 script fails if any recorded score, verdict, or summary number differs, so
 the simulator and README can only show numbers that the verifier reproduces.
@@ -23,19 +24,14 @@ from logictune.specs import NUM_SPECS, SPEC_IDS  # noqa: E402
 from logictune.verifier import verify_response  # noqa: E402
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--results", default="results/latest")
-    ap.add_argument("--engine", default="explicit", choices=["explicit", "nuxmv", "both"])
-    args = ap.parse_args()
-
-    rows = list(csv.DictReader(open(os.path.join(args.results, "eval_samples.csv"), newline="")))
-    summary = json.load(open(os.path.join(args.results, "summary.json")))
-    replay = json.load(open(os.path.join(args.results, "replay.json")))
+def check_run(run_dir, engine):
+    rows = list(csv.DictReader(open(os.path.join(run_dir, "eval_samples.csv"), newline="")))
+    summary = json.load(open(os.path.join(run_dir, "summary.json")))
+    replay = json.load(open(os.path.join(run_dir, "replay.json")))
 
     mismatches, per_model = 0, defaultdict(list)
     for r in rows:
-        res = verify_response(r["response"], engine=args.engine)
+        res = verify_response(r["response"], engine=engine)
         recorded = {s: r[s] == "1" for s in SPEC_IDS}
         if res.score != int(r["score"]) or res.specs != recorded:
             mismatches += 1
@@ -55,8 +51,18 @@ def main():
         mismatches += 1
         print(f"MISMATCH replay.json has {n_replay} samples, eval_samples.csv has {len(rows)}")
 
-    print(f"checked {len(rows)} recorded responses with engine={args.engine}: {mismatches} mismatches")
-    sys.exit(1 if mismatches else 0)
+    print(f"{run_dir}: checked {len(rows)} recorded responses with engine={engine}: {mismatches} mismatches")
+    return mismatches
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--results", default="results/latest")
+    ap.add_argument("--engine", default="explicit", choices=["explicit", "nuxmv", "both"])
+    args = ap.parse_args()
+    index = json.load(open(os.path.join(args.results, "index.json")))
+    total = sum(check_run(os.path.join(args.results, r["path"]), args.engine) for r in index["runs"])
+    sys.exit(1 if total else 0)
 
 
 if __name__ == "__main__":

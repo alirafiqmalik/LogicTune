@@ -23,5 +23,5 @@ jobs:
       - name: Verification demo
         run: python main.py demo
       - name: Re-verify committed results
-        if: hashFiles('results/latest/eval_samples.csv') != ''
+        if: hashFiles('results/latest/index.json') != ''
         run: python scripts/check_results.py --engine explicit

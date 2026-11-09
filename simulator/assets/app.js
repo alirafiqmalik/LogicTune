@@ -10,18 +10,23 @@
   const pct = Charts.pct;
   const SPEC_LABEL = (id) => "φ" + id.split("_")[1];
 
-  const state = { data: null, scenario: 1, sample: 0, playing: false, speed: 1.5, lanes: [], models: [null, null] };
+  const state = { index: null, prefix: "data/", run: null, data: null, scenario: 1, sample: 0, playing: false, speed: 1.5, lanes: [], models: [null, null] };
 
   // ------------------------------------------------------------ data loading
-  async function load() {
-    for (const url of ["data/replay.json", "../results/latest/replay.json"]) {
-      try {
-        const r = await fetch(url, { cache: "no-cache" });
-        if (r.ok) return await r.json();
-      } catch (e) { /* try next */ }
-    }
-    throw new Error("replay.json not found");
+  // results/latest/index.json lists the exported runs; each run folder holds
+  // replay.json and the CSV files. The deployed site serves them under data/.
+  async function fetchJson(url) {
+    const r = await fetch(url, { cache: "no-cache" });
+    if (!r.ok) throw new Error(`${url}: ${r.status}`);
+    return r.json();
   }
+  async function loadIndex() {
+    for (const prefix of ["data/", "../results/latest/"]) {
+      try { return { prefix, index: await fetchJson(prefix + "index.json") }; } catch (e) { /* try next */ }
+    }
+    throw new Error("index.json not found");
+  }
+  const runDir = () => state.prefix + state.run.path;
 
   function cssColors() {
     const s = getComputedStyle(document.documentElement);
@@ -73,7 +78,6 @@
     const sel = $("#scenario");
     sel.innerHTML = state.data.scenarios.map((s) => `<option value="${s.id}">${s.id}. ${esc(s.text)}${s.heldout ? " (held out)" : ""}</option>`).join("");
     sel.value = state.scenario;
-    sel.addEventListener("change", () => { state.scenario = +sel.value; state.sample = 0; refresh(); });
   }
 
   function renderStrip() {
@@ -109,11 +113,17 @@
     document.querySelectorAll(".lane").forEach((node, idx) => {
       node.appendChild(tpl.content.cloneNode(true));
       const sel = $(".model", node);
-      sel.innerHTML = state.data.models.map((m) => `<option value="${m.id}">${esc(m.label)} · ${pct(m.satisfaction_rate)}</option>`).join("");
-      sel.value = state.models[idx];
       sel.addEventListener("change", () => { state.models[idx] = sel.value; refresh(); });
       const lane = new Lane($("canvas", node), { colors: getColors, onTick: () => {} });
       state.lanes.push({ node, lane, lastRule: null, lastViolations: -1 });
+    });
+  }
+
+  function populateModelSelects() {
+    state.lanes.forEach((L, idx) => {
+      const sel = $(".model", L.node);
+      sel.innerHTML = state.data.models.map((m) => `<option value="${m.id}">${esc(m.label)} · ${pct(m.satisfaction_rate)}</option>`).join("");
+      sel.value = state.models[idx];
     });
   }
 
@@ -194,6 +204,8 @@
   }
 
   function refresh() {
+    renderScenarioSelect();
+    state.lanes.forEach((L, i) => { $(".model", L.node).value = state.models[i]; });
     const scen = scenarioById(state.scenario);
     $("#scenario-text").innerHTML = `${esc(scen.text)} <span class="tag">intent: ${esc(scen.intent)}</span>${scen.heldout ? '<span class="tag">held out of training</span>' : ""}`;
     renderStrip();
@@ -222,7 +234,7 @@
 
   // ---------------------------------------------------------- url + theme
   function writeHash() {
-    history.replaceState(null, "", `#s=${state.scenario}&i=${state.sample}&a=${state.models[0]}&b=${state.models[1]}`);
+    history.replaceState(null, "", `#r=${state.run.id}&s=${state.scenario}&i=${state.sample}&a=${state.models[0]}&b=${state.models[1]}`);
   }
   function readHash() {
     const p = new URLSearchParams(location.hash.slice(1));
@@ -247,21 +259,35 @@
   }
 
   // ------------------------------------------------------------------- init
-  async function init() {
-    initTheme();
-    try { state.data = await load(); } catch (e) {
-      $("#provenance").textContent = "Could not load replay.json. Run `python main.py export --run-dir <run>` and serve this folder over HTTP.";
-      return;
-    }
+  async function selectRun(runId, fromHash) {
+    state.run = state.index.runs.find((r) => r.id === runId) || state.index.runs[0];
+    $("#run").value = state.run.id;
+    state.data = await fetchJson(runDir() + "replay.json");
     const ms = state.data.models;
     state.models = [ms[0].id, ms[ms.length - 1].id];
-    readHash();
+    if (fromHash) readHash();
+    document.querySelectorAll("[data-file]").forEach((a) => { a.href = runDir() + a.dataset.file; });
     renderTiles();
-    renderScenarioSelect();
-    $("#scenario").value = state.scenario;
-    buildLanes();
-    state.lanes.forEach((L, i) => { $(".model", L.node).value = state.models[i]; });
+    populateModelSelects();
     renderResults();
+    refresh();
+  }
+
+  async function init() {
+    initTheme();
+    try {
+      const { prefix, index } = await loadIndex();
+      state.prefix = prefix; state.index = index;
+    } catch (e) {
+      $("#provenance").textContent = "Could not load results. Run `python main.py export --run-dir <run>` and serve the repository over HTTP.";
+      return;
+    }
+    const runSel = $("#run");
+    runSel.innerHTML = state.index.runs.map((r) => `<option value="${r.id}">${esc(r.base_model)} · ${pct(r.base_satisfaction)} → ${pct(r.final_satisfaction)}</option>`).join("");
+    runSel.addEventListener("change", () => { state.scenario = 1; state.sample = 0; selectRun(runSel.value, false); });
+    const hashRun = new URLSearchParams(location.hash.slice(1)).get("r");
+    const scenSel = $("#scenario");
+    buildLanes();
     $("#play").addEventListener("click", play);
     $("#reset").addEventListener("click", resetAll);
     const sp = $("#speed");
@@ -270,7 +296,8 @@
     let rt;
     window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { renderResults(); state.lanes.forEach((L) => L.lane.draw()); }, 150); });
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { colors = null; state.lanes.forEach((L) => L.lane.draw()); });
-    refresh();
+    scenSel.addEventListener("change", () => { state.scenario = +scenSel.value; state.sample = 0; refresh(); });
+    await selectRun(hashRun || state.index.default, true);
   }
   init();
 })();

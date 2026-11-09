@@ -5,7 +5,7 @@ LogicTune command-line interface.
     python main.py verify --file response.txt   # parse + model check one response
     python main.py pipeline --run-dir runs/x    # base eval -> iterative DPO -> eval (GPU)
     python main.py evaluate --model PATH --tag T --out DIR
-    python main.py export --run-dir runs/x      # write results/latest/* for the README and UI
+    python main.py export --run-dir runs/x      # write results/latest/<run>/ for the README and UI
 """
 
 from __future__ import annotations
@@ -79,9 +79,11 @@ def cmd_evaluate(args):
 
 
 def cmd_export(args):
-    from logictune.export import export_run
+    from logictune.export import export_run, update_index
 
-    export_run(args.run_dir, args.out, label=args.label)
+    run_id = args.run_id or os.path.basename(os.path.normpath(args.run_dir))
+    summary = export_run(args.run_dir, os.path.join(args.results, run_id), label=args.label)
+    update_index(args.results, run_id, summary, make_default=args.default)
 
 
 def main():
@@ -116,8 +118,10 @@ def main():
 
     x = sub.add_parser("export", help="export a run to results/latest")
     x.add_argument("--run-dir", required=True)
-    x.add_argument("--out", default="results/latest")
+    x.add_argument("--results", default="results/latest", help="results root (one folder per run)")
+    x.add_argument("--run-id", default=None, help="folder name under the results root (default: run dir name)")
     x.add_argument("--label", default=None)
+    x.add_argument("--default", action="store_true", help="make this the run the simulator opens first")
 
     args = p.parse_args()
     {"demo": cmd_demo, "verify": cmd_verify, "pipeline": cmd_pipeline, "evaluate": cmd_evaluate, "export": cmd_export}[args.cmd](args)

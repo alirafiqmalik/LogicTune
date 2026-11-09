@@ -3,8 +3,9 @@ Render the README figures from the exported results (no GPU, no model).
 
     python scripts/plot_results.py [--results results/latest]
 
-Reads summary.json, per_spec.csv, per_scenario.csv, training_curves.csv and
-eval_samples.csv, and writes PNG figures to <results>/figures/.
+For every run in <results>/index.json, reads summary.json,
+training_curves.csv and eval_samples.csv, and writes PNG figures to
+<results>/<run>/figures/.
 """
 
 import argparse
@@ -172,15 +173,18 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--results", default="results/latest")
     args = ap.parse_args()
-    out = os.path.join(args.results, "figures")
-    os.makedirs(out, exist_ok=True)
-    s, rows, curves = load(args.results)
-    fig_rounds(s, out)
-    fig_specs(s, out)
-    fig_scenarios(s, rows, out)
-    fig_scores(s, rows, out)
-    fig_training(curves, out)
-    print(f"wrote figures to {out}")
+    index = json.load(open(os.path.join(args.results, "index.json")))
+    for run in index["runs"]:
+        run_dir = os.path.join(args.results, run["path"])
+        out = os.path.join(run_dir, "figures")
+        os.makedirs(out, exist_ok=True)
+        s, rows, curves = load(run_dir)
+        fig_rounds(s, out)
+        fig_specs(s, out)
+        fig_scenarios(s, rows, out)
+        fig_scores(s, rows, out)
+        fig_training(curves, out)
+        print(f"wrote figures to {out}")
 
 
 if __name__ == "__main__":

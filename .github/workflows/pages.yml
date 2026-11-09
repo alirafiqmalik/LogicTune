@@ -33,9 +33,10 @@ jobs:
         run: python scripts/check_results.py --engine explicit
       - name: Assemble site (simulator + recorded results)
         run: |
-          mkdir -p _site/data
+          mkdir -p _site
           cp -r simulator/index.html simulator/assets _site/
-          cp results/latest/replay.json results/latest/summary.json results/latest/*.csv _site/data/
+          cp -r results/latest _site/data
+          rm -rf _site/data/*/figures
           echo "$GITHUB_SHA" > _site/data/COMMIT
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

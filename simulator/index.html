@@ -29,6 +29,7 @@
   </header>
 
   <main class="wrap">
+    <div class="run-bar"><label>Recorded run <select id="run" aria-label="Recorded run"></select></label></div>
     <section class="tiles" id="tiles" aria-label="Headline results"></section>
     <p class="prov" id="provenance">Loading recorded results…</p>
 
@@ -87,7 +88,7 @@
         <summary>Table view of all rounds</summary>
         <div id="rounds-table"></div>
       </details>
-      <p class="downloads">Raw data: <a href="data/summary.json">summary.json</a> · <a href="data/rounds.csv">rounds.csv</a> · <a href="data/eval_samples.csv">eval_samples.csv</a> · <a href="data/per_spec.csv">per_spec.csv</a> · <a href="data/training_curves.csv">training_curves.csv</a> · <a href="data/replay.json">replay.json</a></p>
+      <p class="downloads">Raw data for this run: <a data-file="summary.json" href="#">summary.json</a> · <a data-file="rounds.csv" href="#">rounds.csv</a> · <a data-file="eval_samples.csv" href="#">eval_samples.csv</a> · <a data-file="per_spec.csv" href="#">per_spec.csv</a> · <a data-file="per_scenario.csv" href="#">per_scenario.csv</a> · <a data-file="training_curves.csv" href="#">training_curves.csv</a> · <a data-file="replay.json" href="#">replay.json</a></p>
     </section>
 
     <section id="method" class="card">
