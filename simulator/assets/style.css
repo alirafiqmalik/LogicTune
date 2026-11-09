@@ -210,6 +210,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
+  /* sample strip: label above its cells, so each row holds ten cells instead of five */
+  .strip { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
+  .strip .cells + .who { margin-top: 8px; }
   /* spec table: formula on its own line, meaning below it, no sideways scroll */
   .spec-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .spec-table tr { display: grid; grid-template-columns: 2.5em minmax(0, 1fr); column-gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -220,5 +223,4 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 @media (max-width: 520px) {
   .tile .value { font-size: 22px; }
   .links { gap: 10px; font-size: 13px; }
-  .cell { width: 22px; height: 22px; font-size: 10px; }
 }
