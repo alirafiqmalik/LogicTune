@@ -311,10 +311,14 @@
   }
 
   // ------------------------------------------------------------------- init
+  let loadToken = 0;
   async function selectRun(runId, fromHash) {
     state.run = state.index.runs.find((r) => r.id === runId) || state.index.runs[0];
     $("#run").value = state.run.id;
-    state.data = await fetchJson(runDir() + "replay.json");
+    const token = ++loadToken;
+    const data = await fetchJson(runDir() + "replay.json");
+    if (token !== loadToken) return; // a newer selectRun superseded this load
+    state.data = data;
     const ms = state.data.models;
     state.models = [ms[0].id, ms[ms.length - 1].id];
     if (fromHash) readHash();
