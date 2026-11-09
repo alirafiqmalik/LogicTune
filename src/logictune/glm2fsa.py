@@ -475,12 +475,22 @@ class _CondParser:
         return mk_not(e) if negated else e
 
 
+_NESTED_IF = re.compile(r"\s*,?\s*\b(?:and\s+)?(?:if|when|whenever)\b\s+", re.IGNORECASE)
+
+
 def parse_condition(text: str, unknown: Optional[Dict[str, str]] = None) -> Expr:
-    """Parse a natural-language or formal condition into an expression."""
+    """Parse a natural-language or formal condition into an expression.
+
+    Chained conditions ("A, if B, if C") are a conjunction of their parts.
+    """
     unknown = {} if unknown is None else unknown
-    tokens = _normalize_condition(text).split()
-    e = _CondParser(tokens, unknown).parse()
-    return TRUE if e is None else e
+    parts = [p for p in _NESTED_IF.split(text) if p.strip(" ,")]
+    exprs = []
+    for part in parts:
+        e = _CondParser(_normalize_condition(part).split(), unknown).parse()
+        if e is not None:
+            exprs.append(e)
+    return mk_and(exprs) if exprs else TRUE
 
 
 # ---------------------------------------------------------------------------

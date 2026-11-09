@@ -204,3 +204,12 @@ def test_inline_rule_then_otherwise_line():
 def test_example_blocks_are_ignored():
     ctrl = extract_rules("If pedestrian_in_front is true, the car should follow:\n\n- Stop\n\nExample:\nGreen light: true\n\n- Go straight\n")
     assert _gs(ctrl) == [("pedestrian_in_front", "stop")]
+
+
+def test_chained_if_conditions_are_a_conjunction():
+    ctrl = extract_rules("1. If not green_traffic_light or not green_left_turn_light, if opposite_car, if car_from_left, stop.\n"
+                         "2. If not stop_sign, If green_traffic_light, go_straight.")
+    assert _gs(ctrl) == [
+        ("(!green_traffic_light | !green_left_turn_light) & opposite_car & car_from_left", "stop"),
+        ("!stop_sign & green_traffic_light", "go_straight"),
+    ]
