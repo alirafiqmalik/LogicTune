@@ -198,6 +198,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .foot { color: var(--text-3); font-size: 12.5px; padding-bottom: 28px; }
 
 @media (max-width: 900px) {
+  /* the header wraps to two or three rows here; sticky, it would cover the replay */
+  .top { position: static; }
   .lanes, .grid2 { grid-template-columns: 1fr; }
   .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
