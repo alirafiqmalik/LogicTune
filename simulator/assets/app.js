@@ -1,0 +1,276 @@
+/*
+ * LogicTune replay app: loads the recorded evaluation (replay.json) and drives
+ * two simulation lanes plus the results charts. No data is generated here;
+ * every response, rule, score, and verdict comes from the exported run.
+ */
+(function () {
+  "use strict";
+  const { Lane } = window.LogicTuneSim;
+  const Charts = window.LogicTuneCharts;
+  const pct = Charts.pct;
+  const SPEC_LABEL = (id) => "φ" + id.split("_")[1];
+
+  const state = { data: null, scenario: 1, sample: 0, playing: false, speed: 1.5, lanes: [], models: [null, null] };
+
+  // ------------------------------------------------------------ data loading
+  async function load() {
+    for (const url of ["data/replay.json", "../results/latest/replay.json"]) {
+      try {
+        const r = await fetch(url, { cache: "no-cache" });
+        if (r.ok) return await r.json();
+      } catch (e) { /* try next */ }
+    }
+    throw new Error("replay.json not found");
+  }
+
+  function cssColors() {
+    const s = getComputedStyle(document.documentElement);
+    const v = (n) => s.getPropertyValue(n).trim();
+    return {
+      ground: v("--sim-ground"), road: v("--sim-road"), marking: v("--sim-marking"), crosswalk: v("--sim-crosswalk"),
+      ego: v("--sim-ego"), other: v("--sim-other"), egoGlass: v("--sim-glass"), pedestrian: v("--sim-ped"),
+      signalBox: v("--sim-box"), lampOff: v("--sim-off"), red: "#e34948", green: "#22c55e", critical: v("--critical"),
+    };
+  }
+  let colors = null;
+  const getColors = () => colors || (colors = cssColors());
+
+  // --------------------------------------------------------------- helpers
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const scenarioById = (id) => state.data.scenarios.find((s) => s.id === id);
+  const modelById = (id) => state.data.models.find((m) => m.id === id);
+  function samplesFor(modelId, scenarioId) {
+    return state.data.samples[modelId]
+      .filter((x) => x.scenario_id === scenarioId)
+      .sort((a, b) => a.template - b.template || a.sample_idx - b.sample_idx);
+  }
+
+  // --------------------------------------------------------------- headline
+  function renderTiles() {
+    const d = state.data, h = d.headline, rounds = d.rounds;
+    const base = rounds[0], fin = rounds[rounds.length - 1];
+    const ci = h.change_ci95_pp ? `95% CI ${h.change_ci95_pp[0].toFixed(1)} to ${h.change_ci95_pp[1].toFixed(1)} pts` : "";
+    const p = h.p_value !== undefined ? ` · p ${h.p_value < 0.001 ? "< 0.001" : "= " + h.p_value.toFixed(3)}` : "";
+    const tiles = [
+      { label: "Base model satisfaction", value: pct(base.satisfaction_rate), delta: `${base.label}`, key: "base" },
+      { label: "Fine-tuned satisfaction", value: pct(fin.satisfaction_rate), delta: `after ${h.final_round} DPO round${h.final_round === 1 ? "" : "s"}`, key: "ft" },
+      { label: "Change", value: `${h.change_pp >= 0 ? "+" : "−"}${Math.abs(h.change_pp).toFixed(1)} pts`, delta: ci + p },
+      { label: "All 15 specs satisfied", value: `${pct(base.full_pass_rate)} → ${pct(fin.full_pass_rate)}`, delta: "share of responses, base → fine-tuned" },
+    ];
+    $("#tiles").innerHTML = tiles.map((t) => `<div class="tile"><div class="label">${t.key ? `<i class="key ${t.key}"></i>` : ""}${esc(t.label)}</div><div class="value">${esc(t.value)}</div><div class="delta">${esc(t.delta)}</div></div>`).join("");
+    const pv = d.provenance || {};
+    const parts = [`Model: ${d.headline.base_model}`, `run ${pv.run_name || "?"}`];
+    if (pv.gpu) parts.push(pv.gpu);
+    if (pv.source_commit) parts.push(`source ${pv.source_commit.slice(0, 7)}`);
+    if (pv.exported_at) parts.push(`exported ${pv.exported_at.slice(0, 10)}`);
+    $("#provenance").textContent = `${parts.join(" · ")}. Evaluation: ${d.samples[d.models[0].id].length} recorded responses per model (17 scenarios × 2 unseen prompt templates × 10 samples).`;
+    $("#foot-commit").textContent = pv.source_commit ? `source commit ${pv.source_commit.slice(0, 7)}` : "";
+  }
+
+  // ------------------------------------------------------------- scenarios
+  function renderScenarioSelect() {
+    const sel = $("#scenario");
+    sel.innerHTML = state.data.scenarios.map((s) => `<option value="${s.id}">${s.id}. ${esc(s.text)}${s.heldout ? " (held out)" : ""}</option>`).join("");
+    sel.value = state.scenario;
+    sel.addEventListener("change", () => { state.scenario = +sel.value; state.sample = 0; refresh(); });
+  }
+
+  function renderStrip() {
+    const strip = $("#strip");
+    strip.innerHTML = "";
+    state.models.forEach((mid, laneIdx) => {
+      const m = modelById(mid);
+      const who = document.createElement("div");
+      who.className = "who";
+      who.innerHTML = `<i class="key ${laneIdx === 0 ? "base" : "ft"}" style="width:10px;height:10px;border-radius:3px;display:inline-block"></i>${esc(m.label)}`;
+      const cells = document.createElement("div");
+      cells.className = "cells";
+      samplesFor(mid, state.scenario).forEach((x, i) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "cell" + (i === state.sample ? " sel" : "");
+        const share = Math.round((x.score / 15) * 85);
+        b.style.background = `color-mix(in oklab, var(--accent) ${share}%, var(--surface-2))`;
+        b.style.color = share > 50 ? "#fff" : "var(--text)";
+        b.textContent = x.score;
+        b.title = `Prompt template ${x.template + 1}, sample ${x.sample_idx + 1}: ${x.score}/15`;
+        b.setAttribute("aria-label", b.title);
+        b.addEventListener("click", () => { state.sample = i; refresh(); });
+        cells.appendChild(b);
+      });
+      strip.append(who, cells);
+    });
+  }
+
+  // ------------------------------------------------------------------ lanes
+  function buildLanes() {
+    const tpl = $("#lane-tpl");
+    document.querySelectorAll(".lane").forEach((node, idx) => {
+      node.appendChild(tpl.content.cloneNode(true));
+      const sel = $(".model", node);
+      sel.innerHTML = state.data.models.map((m) => `<option value="${m.id}">${esc(m.label)} · ${pct(m.satisfaction_rate)}</option>`).join("");
+      sel.value = state.models[idx];
+      sel.addEventListener("change", () => { state.models[idx] = sel.value; refresh(); });
+      const lane = new Lane($("canvas", node), { colors: getColors, onTick: () => {} });
+      state.lanes.push({ node, lane, lastRule: null, lastViolations: -1 });
+    });
+  }
+
+  function renderLane(idx) {
+    const L = state.lanes[idx], node = L.node;
+    const sample = samplesFor(state.models[idx], state.scenario)[state.sample];
+    const scen = scenarioById(state.scenario);
+    L.sample = sample;
+    L.lane.load(scen, sample.rules, scen.id);
+    const pill = $(".score-pill", node);
+    pill.textContent = `${sample.score}/15 specs`;
+    // verdict chips
+    $(".verdicts", node).innerHTML = state.data.specs.map((s, j) => {
+      const ok = sample.specs[j] === 1;
+      return `<span class="chip ${ok ? "pass" : "fail"}" title="${esc(s.id)}: ${esc(s.formula)} — ${esc(s.description)} (${ok ? "satisfied" : "violated"})"><span class="ic">${ok ? "✓" : "✗"}</span>${SPEC_LABEL(s.id)}</span>`;
+    }).join("");
+    // rules
+    const rules = sample.rules;
+    $(".rules", node).innerHTML = rules.length
+      ? rules.map((r) => `<li><span class="guard">if ${esc(r.guard_text)}</span> → <span class="act">${esc(r.action)}</span></li>`).join("")
+      : `<li class="muted">No rule could be parsed. The action is undefined in every state.</li>`;
+    const free = Object.entries(sample.free_atoms || {});
+    $(".free", node).textContent = free.length
+      ? `Free atoms (unknown phrases): ${free.map(([k, v]) => `${k} = "${v}"`).join(", ")}. The simulation treats them as false; the model checker explores both values.`
+      : "";
+    $(".prompt", node).textContent = `Prompt: ${sample.prompt}`;
+    $("pre", node).textContent = sample.response;
+    L.lastRule = null; L.lastViolations = -1;
+    updateLaneHud(idx);
+  }
+
+  function updateLaneHud(idx) {
+    const L = state.lanes[idx], lane = L.lane, node = L.node;
+    const d = lane.decision;
+    const act = $(".hud-action", node);
+    act.textContent = d.action ? d.action : "NO RULE";
+    act.classList.toggle("undef", !d.action);
+    $(".hud-rule", node).textContent = d.rule >= 0 ? `rule ${d.rule + 1} · t = ${(lane.t / 60).toFixed(1)} s` : `undefined · t = ${(lane.t / 60).toFixed(1)} s`;
+    if (L.lastRule !== d.rule) {
+      node.querySelectorAll(".rules li").forEach((li, i) => li.classList.toggle("hit", i === d.rule));
+      L.lastRule = d.rule;
+    }
+    if (L.lastViolations !== lane.violations.length) {
+      $(".violations", node).innerHTML = lane.violations.length
+        ? lane.violations.map((v) => `<li><span class="bad">${SPEC_LABEL(v.id)} violated</span> at ${v.t.toFixed(1)} s: ${esc(v.why)}</li>`).join("")
+        : `<li class="muted">No violation yet.</li>`;
+      L.lastViolations = lane.violations.length;
+    }
+    const out = $(".outcome", node);
+    if (lane.done) {
+      out.hidden = false;
+      out.textContent = lane.outcome === "crossed" ? "Crossed the intersection" : lane.outcome === "waiting" ? "Still waiting at the stop line" : "Stopped inside the intersection";
+    } else out.hidden = true;
+  }
+
+  // -------------------------------------------------------------- playback
+  let raf = null;
+  function frame() {
+    let running = false;
+    state.lanes.forEach((L, i) => {
+      if (!L.lane.done) { L.lane.step(state.speed); running = true; }
+      L.lane.draw();
+      updateLaneHud(i);
+    });
+    if (running && state.playing) raf = requestAnimationFrame(frame);
+    else { state.playing = false; $("#play").textContent = "Play"; }
+  }
+  function play() {
+    if (state.lanes.every((L) => L.lane.done)) state.lanes.forEach((L) => L.lane.reset());
+    state.playing = !state.playing;
+    $("#play").textContent = state.playing ? "Pause" : "Play";
+    if (state.playing) raf = requestAnimationFrame(frame);
+    else cancelAnimationFrame(raf);
+  }
+  function resetAll() {
+    state.playing = false; cancelAnimationFrame(raf); $("#play").textContent = "Play";
+    state.lanes.forEach((L, i) => { L.lane.reset(); renderLane(i); });
+  }
+
+  function refresh() {
+    const scen = scenarioById(state.scenario);
+    $("#scenario-text").innerHTML = `${esc(scen.text)} <span class="tag">intent: ${esc(scen.intent)}</span>${scen.heldout ? '<span class="tag">held out of training</span>' : ""}`;
+    renderStrip();
+    resetAll();
+    writeHash();
+  }
+
+  // ----------------------------------------------------------------- results
+  function renderResults() {
+    const d = state.data, rounds = d.rounds, base = rounds[0], fin = rounds[rounds.length - 1];
+    const h = d.headline;
+    $("#results-hint").textContent = `Evaluation on prompts never used in training (two unseen instruction templates). Scenarios ${d.scenarios.filter((s) => s.heldout).map((s) => s.id).join(", ")} were also held out of training entirely. Held-out scenarios: ${pct(base.heldout_satisfaction)} → ${pct(fin.heldout_satisfaction)}.`;
+    Charts.roundsLine($("#chart-rounds"), rounds, "satisfaction_rate", "satisfaction_ci95", "Satisfaction");
+    Charts.roundsLine($("#chart-fullpass"), rounds, "full_pass_rate", null, "Full pass");
+    Charts.pairedBars($("#chart-specs"), d.specs.map((s) => ({ name: SPEC_LABEL(s.id), title: `${s.id}: ${s.formula}`, base: base.per_spec[s.id], ft: fin.per_spec[s.id] })),
+      { label: "Per-specification satisfaction", baseLabel: base.label, ftLabel: fin.label, labelWidth: 44 });
+    const baseScen = d.samples[d.models[0].id], finScen = d.samples[d.models[d.models.length - 1].id];
+    const mean = (arr) => arr.reduce((a, x) => a + x.score / 15, 0) / Math.max(1, arr.length);
+    Charts.dumbbell($("#chart-scen"), d.scenarios.map((s) => ({
+      id: s.id, text: s.text, heldout: s.heldout,
+      base: mean(baseScen.filter((x) => x.scenario_id === s.id)), ft: mean(finScen.filter((x) => x.scenario_id === s.id)),
+    })), { label: "Per-scenario satisfaction", baseLabel: base.label, ftLabel: fin.label });
+    $("#rounds-table").innerHTML = `<div class="table-scroll"><table><thead><tr><th>Round</th><th class="num">Satisfaction</th><th class="num">95% CI</th><th class="num">Full pass</th><th class="num">Parse rate</th><th class="num">Seen scen.</th><th class="num">Held-out scen.</th></tr></thead><tbody>${rounds.map((r) => `<tr><td>${esc(r.label)}</td><td class="num">${pct(r.satisfaction_rate)}</td><td class="num">${pct(r.satisfaction_ci95[0])} – ${pct(r.satisfaction_ci95[1])}</td><td class="num">${pct(r.full_pass_rate)}</td><td class="num">${pct(r.parse_rate)}</td><td class="num">${pct(r.seen_satisfaction)}</td><td class="num">${pct(r.heldout_satisfaction)}</td></tr>`).join("")}</tbody></table></div>`;
+    $("#spec-table tbody").innerHTML = d.specs.map((s) => `<tr><td>${SPEC_LABEL(s.id)}</td><td>${esc(s.formula)}</td><td>${esc(s.description)}</td></tr>`).join("");
+  }
+
+  // ---------------------------------------------------------- url + theme
+  function writeHash() {
+    history.replaceState(null, "", `#s=${state.scenario}&i=${state.sample}&a=${state.models[0]}&b=${state.models[1]}`);
+  }
+  function readHash() {
+    const p = new URLSearchParams(location.hash.slice(1));
+    if (p.get("s")) state.scenario = +p.get("s");
+    if (p.get("i")) state.sample = +p.get("i");
+    if (p.get("a") && modelById(p.get("a"))) state.models[0] = p.get("a");
+    if (p.get("b") && modelById(p.get("b"))) state.models[1] = p.get("b");
+  }
+  function initTheme() {
+    let saved = null;
+    try { saved = localStorage.getItem("lt-theme"); } catch (e) { /* storage blocked */ }
+    if (saved) document.documentElement.dataset.theme = saved;
+    $("#theme-btn").addEventListener("click", () => {
+      const dark = document.documentElement.dataset.theme
+        ? document.documentElement.dataset.theme === "dark"
+        : matchMedia("(prefers-color-scheme: dark)").matches;
+      const next = dark ? "light" : "dark";
+      document.documentElement.dataset.theme = next;
+      try { localStorage.setItem("lt-theme", next); } catch (e) { /* ignore */ }
+      colors = null; renderResults(); state.lanes.forEach((L) => L.lane.draw());
+    });
+  }
+
+  // ------------------------------------------------------------------- init
+  async function init() {
+    initTheme();
+    try { state.data = await load(); } catch (e) {
+      $("#provenance").textContent = "Could not load replay.json. Run `python main.py export --run-dir <run>` and serve this folder over HTTP.";
+      return;
+    }
+    const ms = state.data.models;
+    state.models = [ms[0].id, ms[ms.length - 1].id];
+    readHash();
+    renderTiles();
+    renderScenarioSelect();
+    $("#scenario").value = state.scenario;
+    buildLanes();
+    state.lanes.forEach((L, i) => { $(".model", L.node).value = state.models[i]; });
+    renderResults();
+    $("#play").addEventListener("click", play);
+    $("#reset").addEventListener("click", resetAll);
+    const sp = $("#speed");
+    sp.value = state.speed;
+    sp.addEventListener("input", () => { state.speed = +sp.value; $("#speed-out").textContent = `${state.speed}×`; });
+    let rt;
+    window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { renderResults(); state.lanes.forEach((L) => L.lane.draw()); }, 150); });
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { colors = null; state.lanes.forEach((L) => L.lane.draw()); });
+    refresh();
+  }
+  init();
+})();
