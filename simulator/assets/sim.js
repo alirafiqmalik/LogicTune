@@ -198,14 +198,14 @@
       }
       this.decision = decide(this.rules, this.vars);
       const a = this.decision.action;
-      if (this.car.mode !== "exit") {
-        for (const [id, bad, why] of MONITORS) {
-          if (bad(this.vars, a)) {
-            this.flash = 20;
-            if (!this.seen.has(id)) {
-              this.seen.add(id);
-              this.violations.push({ id, t: this.t / 60, why });
-            }
+      // Checked on every tick until the car has left: the controller keeps
+      // deciding after a turn, so its later decisions are monitored too.
+      for (const [id, bad, why] of MONITORS) {
+        if (bad(this.vars, a)) {
+          this.flash = 20;
+          if (!this.seen.has(id)) {
+            this.seen.add(id);
+            this.violations.push({ id, t: this.t / 60, why });
           }
         }
       }
