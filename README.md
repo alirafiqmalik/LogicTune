@@ -32,9 +32,9 @@ Satisfaction rate = mean share of the 15 LTL specifications satisfied per respon
 <img src="results/latest/tinyllama-1.1b/figures/satisfaction_by_round.png" alt="Specification satisfaction and full-pass rate by DPO round for TinyLlama/TinyLlama-1.1B-Chat-v1.0" width="100%"/>
 <sub>TinyLlama/TinyLlama-1.1B-Chat-v1.0 · rendered by <code>scripts/plot_results.py</code> from <code>results/latest/tinyllama-1.1b/</code></sub>
 
-- Qwen/Qwen2.5-3B-Instruct gains +67.7 pts (95% CI +64.5 to +71.2, p < 0.001) and TinyLlama/TinyLlama-1.1B-Chat-v1.0 gains +71.1 pts (95% CI +68.9 to +73.0, p < 0.001). Both gains hold on held-out scenarios, which never appear in training: 23.2% to 92.4%, and 6.2% to 80.0%.
-- The full-pass rate is the share of responses that satisfy all 15 specifications. It moves from 0.0% to 70.3% for Qwen2.5-3B and from 0.0% to 0.3% for TinyLlama. The final TinyLlama controllers are mostly "go straight on green, stop otherwise", so they miss pedestrians and stop signs.
-- The rate before training is 28.7% and 8.1%, lower than the paper's about 60%, because this verifier is stricter: an undefined action counts as any action.
+- Qwen/Qwen2.5-3B-Instruct gains +67.7 pts (95% CI +64.5 to +71.2, p < 0.001) and TinyLlama/TinyLlama-1.1B-Chat-v1.0 gains +71.1 pts (95% CI +68.9 to +73.0, p < 0.001). Both gains hold on held-out scenarios, which never appear in training: 23.2% to 92.4% for Qwen2.5-3B, and 6.2% to 80.0% for TinyLlama.
+- The full-pass rate is the share of responses that satisfy all 15 specifications. It moves from 0.0% to 70.3% for Qwen2.5-3B and from 0.0% to 0.3% for TinyLlama. The final TinyLlama controllers are mostly "go straight on green, stop otherwise", so they miss pedestrians and stop signs (φ1, φ4, and φ14).
+- The rates before training are 28.7% and 8.1%, lower than the paper's about 60%, because this verifier is stricter: an undefined action counts as any action.
 - Per-specification and per-scenario results are in [Evaluation and results](docs/05-evaluation-and-results.md).
 
 ## How it works
