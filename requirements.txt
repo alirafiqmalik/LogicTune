@@ -1,34 +1,13 @@
-# Core dependencies for DPO-AF pipeline
-# Fine-Tuning Language Models Using Formal Methods Feedback
-#
-# VERSION COMPATIBILITY NOTES:
-# - Code is designed to work across TRL 0.7.4 - 0.12.x with auto-detection
-# - transformers >= 4.44 uses 'eval_strategy', older versions use 'evaluation_strategy'
-# - TRL API has evolved: tokenizer vs processing_class, beta parameter location
-# - TRL >= 0.11: When using PEFT, ref_model should be None (auto-handled)
-# - Our implementation handles all these variations automatically
-
-# Deep Learning Framework
-torch>=2.0.0
-transformers>=4.36.0  # Auto-detects eval_strategy vs evaluation_strategy
-
-# Training libraries (version-agnostic implementation)
-trl>=0.7.4  # DPOTrainer with automatic parameter detection
-peft>=0.7.0  # LoRA fine-tuning
-accelerate>=0.25.0  # Distributed training support
-bitsandbytes>=0.41.0  # 4-bit quantization (optional, GPU only)
-
-# Data handling
-datasets>=2.14.0
-numpy>=1.24.0
-
-# Formal Methods / Graph libraries
-networkx>=3.0
-
-# Visualization
-matplotlib>=3.5.0
-seaborn>=0.12.0
-
-# Utilities
-tqdm>=4.65.0
-
+# Full GPU stack (generation, DPO training, evaluation). Pinned versions are the
+# ones used for the results in results/latest/. Install PyTorch first from the
+# index that matches your CUDA version, e.g.
+#   pip install --index-url https://download.pytorch.org/whl/cu124 torch==2.5.1
+torch==2.5.1
+transformers==4.46.3
+trl==0.12.2
+peft==0.13.2
+accelerate==1.1.1
+datasets==3.1.0
+sentencepiece
+protobuf
+-r requirements-cpu.txt

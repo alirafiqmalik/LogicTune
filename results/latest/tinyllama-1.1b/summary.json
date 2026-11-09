@@ -1,0 +1,738 @@
+{
+  "schema_version": 1,
+  "label": "TinyLlama/TinyLlama-1.1B-Chat-v1.0 - iterative DPO with formal-methods feedback",
+  "provenance": {
+    "run_name": "tinyllama-r5",
+    "exported_at": "2026-11-09T19:44:42+00:00",
+    "source_commit": "17f2a0e9e5428c46aeb197a86f1509ea3c32cc40",
+    "wall_seconds": 1726.5,
+    "gpu": "NVIDIA L40S",
+    "slurm_jobs": [
+      "66985703"
+    ]
+  },
+  "headline": {
+    "base_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "base_satisfaction": 0.08098039215686274,
+    "final_satisfaction": 0.7915686274509803,
+    "final_round": 3,
+    "change_pp": 71.05882352941177,
+    "base_full_pass": 0.0,
+    "final_full_pass": 0.0029411764705882353,
+    "change_ci95_pp": [
+      68.921568627451,
+      72.98039215686273
+    ],
+    "p_value": 0.0,
+    "heldout_change_pp": 73.75
+  },
+  "rounds": [
+    {
+      "round": 0,
+      "label": "Base model",
+      "satisfaction_rate": 0.08098039215686274,
+      "satisfaction_ci95": [
+        0.061176470588235284,
+        0.10294117647058823
+      ],
+      "full_pass_rate": 0.0,
+      "full_pass_ci95": [
+        0.0,
+        0.0
+      ],
+      "parse_rate": 0.888235294117647,
+      "mean_score": 1.214705882352941,
+      "n_eval": 340,
+      "seen_satisfaction": 0.08666666666666666,
+      "heldout_satisfaction": 0.0625,
+      "score_histogram": [
+        243,
+        18,
+        7,
+        34,
+        4,
+        4,
+        7,
+        9,
+        0,
+        5,
+        7,
+        1,
+        1,
+        0,
+        0,
+        0
+      ],
+      "per_spec": {
+        "phi_1": 0.061764705882352944,
+        "phi_2": 0.08529411764705883,
+        "phi_3": 0.029411764705882353,
+        "phi_4": 0.06764705882352941,
+        "phi_5": 0.061764705882352944,
+        "phi_6": 0.07352941176470588,
+        "phi_7": 0.10882352941176471,
+        "phi_8": 0.07058823529411765,
+        "phi_9": 0.05588235294117647,
+        "phi_10": 0.10882352941176471,
+        "phi_11": 0.11470588235294117,
+        "phi_12": 0.06470588235294118,
+        "phi_13": 0.11470588235294117,
+        "phi_14": 0.05588235294117647,
+        "phi_15": 0.1411764705882353
+      },
+      "per_scenario": {
+        "1": {
+          "n": 20,
+          "satisfaction_rate": 0.08333333333333334,
+          "full_pass_rate": 0.0
+        },
+        "2": {
+          "n": 20,
+          "satisfaction_rate": 0.06,
+          "full_pass_rate": 0.0
+        },
+        "3": {
+          "n": 20,
+          "satisfaction_rate": 0.05,
+          "full_pass_rate": 0.0
+        },
+        "4": {
+          "n": 20,
+          "satisfaction_rate": 0.026666666666666665,
+          "full_pass_rate": 0.0
+        },
+        "5": {
+          "n": 20,
+          "satisfaction_rate": 0.12,
+          "full_pass_rate": 0.0
+        },
+        "6": {
+          "n": 20,
+          "satisfaction_rate": 0.030000000000000006,
+          "full_pass_rate": 0.0
+        },
+        "7": {
+          "n": 20,
+          "satisfaction_rate": 0.05,
+          "full_pass_rate": 0.0
+        },
+        "8": {
+          "n": 20,
+          "satisfaction_rate": 0.04666666666666667,
+          "full_pass_rate": 0.0
+        },
+        "9": {
+          "n": 20,
+          "satisfaction_rate": 0.04,
+          "full_pass_rate": 0.0
+        },
+        "10": {
+          "n": 20,
+          "satisfaction_rate": 0.10666666666666666,
+          "full_pass_rate": 0.0
+        },
+        "11": {
+          "n": 20,
+          "satisfaction_rate": 0.15666666666666668,
+          "full_pass_rate": 0.0
+        },
+        "12": {
+          "n": 20,
+          "satisfaction_rate": 0.09,
+          "full_pass_rate": 0.0
+        },
+        "13": {
+          "n": 20,
+          "satisfaction_rate": 0.11333333333333333,
+          "full_pass_rate": 0.0
+        },
+        "14": {
+          "n": 20,
+          "satisfaction_rate": 0.15666666666666668,
+          "full_pass_rate": 0.0
+        },
+        "15": {
+          "n": 20,
+          "satisfaction_rate": 0.05333333333333333,
+          "full_pass_rate": 0.0
+        },
+        "16": {
+          "n": 20,
+          "satisfaction_rate": 0.08666666666666666,
+          "full_pass_rate": 0.0
+        },
+        "17": {
+          "n": 20,
+          "satisfaction_rate": 0.10666666666666666,
+          "full_pass_rate": 0.0
+        }
+      }
+    },
+    {
+      "round": 1,
+      "label": "Fine-tuned (round 1)",
+      "satisfaction_rate": 0.3013725490196078,
+      "satisfaction_ci95": [
+        0.2690196078431373,
+        0.3345098039215686
+      ],
+      "full_pass_rate": 0.0,
+      "full_pass_ci95": [
+        0.0,
+        0.0
+      ],
+      "parse_rate": 0.9647058823529412,
+      "mean_score": 4.520588235294118,
+      "n_eval": 340,
+      "seen_satisfaction": 0.2974358974358975,
+      "heldout_satisfaction": 0.31416666666666665,
+      "score_histogram": [
+        106,
+        11,
+        8,
+        38,
+        14,
+        13,
+        17,
+        44,
+        17,
+        21,
+        33,
+        6,
+        12,
+        0,
+        0,
+        0
+      ],
+      "per_spec": {
+        "phi_1": 0.24705882352941178,
+        "phi_2": 0.4411764705882353,
+        "phi_3": 0.15588235294117647,
+        "phi_4": 0.25,
+        "phi_5": 0.37058823529411766,
+        "phi_6": 0.46176470588235297,
+        "phi_7": 0.18235294117647058,
+        "phi_8": 0.25588235294117645,
+        "phi_9": 0.24705882352941178,
+        "phi_10": 0.18235294117647058,
+        "phi_11": 0.4764705882352941,
+        "phi_12": 0.37941176470588234,
+        "phi_13": 0.18529411764705883,
+        "phi_14": 0.21470588235294116,
+        "phi_15": 0.47058823529411764
+      },
+      "per_scenario": {
+        "1": {
+          "n": 20,
+          "satisfaction_rate": 0.30666666666666664,
+          "full_pass_rate": 0.0
+        },
+        "2": {
+          "n": 20,
+          "satisfaction_rate": 0.30666666666666664,
+          "full_pass_rate": 0.0
+        },
+        "3": {
+          "n": 20,
+          "satisfaction_rate": 0.21333333333333332,
+          "full_pass_rate": 0.0
+        },
+        "4": {
+          "n": 20,
+          "satisfaction_rate": 0.3166666666666667,
+          "full_pass_rate": 0.0
+        },
+        "5": {
+          "n": 20,
+          "satisfaction_rate": 0.23666666666666672,
+          "full_pass_rate": 0.0
+        },
+        "6": {
+          "n": 20,
+          "satisfaction_rate": 0.36333333333333334,
+          "full_pass_rate": 0.0
+        },
+        "7": {
+          "n": 20,
+          "satisfaction_rate": 0.26999999999999996,
+          "full_pass_rate": 0.0
+        },
+        "8": {
+          "n": 20,
+          "satisfaction_rate": 0.33999999999999997,
+          "full_pass_rate": 0.0
+        },
+        "9": {
+          "n": 20,
+          "satisfaction_rate": 0.24333333333333332,
+          "full_pass_rate": 0.0
+        },
+        "10": {
+          "n": 20,
+          "satisfaction_rate": 0.3166666666666667,
+          "full_pass_rate": 0.0
+        },
+        "11": {
+          "n": 20,
+          "satisfaction_rate": 0.2333333333333333,
+          "full_pass_rate": 0.0
+        },
+        "12": {
+          "n": 20,
+          "satisfaction_rate": 0.2566666666666667,
+          "full_pass_rate": 0.0
+        },
+        "13": {
+          "n": 20,
+          "satisfaction_rate": 0.33333333333333337,
+          "full_pass_rate": 0.0
+        },
+        "14": {
+          "n": 20,
+          "satisfaction_rate": 0.39333333333333337,
+          "full_pass_rate": 0.0
+        },
+        "15": {
+          "n": 20,
+          "satisfaction_rate": 0.2566666666666667,
+          "full_pass_rate": 0.0
+        },
+        "16": {
+          "n": 20,
+          "satisfaction_rate": 0.3433333333333333,
+          "full_pass_rate": 0.0
+        },
+        "17": {
+          "n": 20,
+          "satisfaction_rate": 0.39333333333333337,
+          "full_pass_rate": 0.0
+        }
+      },
+      "train_data": {
+        "n": 1736,
+        "satisfaction_rate": 0.1804531490015361,
+        "parse_rate": 0.8899769585253456,
+        "pairs": 816,
+        "prompts_with_pairs": 212,
+        "mean_pair_gap": 6.993872549019608
+      },
+      "train": {
+        "pairs": 816,
+        "optimizer_steps": 102,
+        "train_seconds": 205.1,
+        "final_train_loss": 0.41219410709306303
+      },
+      "vs_base": {
+        "satisfaction_rate": {
+          "diff": 0.22039215686274513,
+          "ci95": [
+            0.1892156862745098,
+            0.25078431372549015
+          ],
+          "p_value": 0.0,
+          "n_prompts": 34
+        },
+        "full_pass_rate": {
+          "diff": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "p_value": 1.0,
+          "n_prompts": 34
+        }
+      }
+    },
+    {
+      "round": 2,
+      "label": "Fine-tuned (round 2)",
+      "satisfaction_rate": 0.6325490196078432,
+      "satisfaction_ci95": [
+        0.6062745098039215,
+        0.6572549019607843
+      ],
+      "full_pass_rate": 0.0,
+      "full_pass_ci95": [
+        0.0,
+        0.0
+      ],
+      "parse_rate": 1.0,
+      "mean_score": 9.488235294117647,
+      "n_eval": 340,
+      "seen_satisfaction": 0.6294871794871795,
+      "heldout_satisfaction": 0.6425000000000001,
+      "score_histogram": [
+        2,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        68,
+        4,
+        1,
+        226,
+        3,
+        34,
+        0,
+        0,
+        0
+      ],
+      "per_spec": {
+        "phi_1": 0.6735294117647059,
+        "phi_2": 0.9911764705882353,
+        "phi_3": 0.12058823529411765,
+        "phi_4": 0.6705882352941176,
+        "phi_5": 0.9823529411764705,
+        "phi_6": 0.9823529411764705,
+        "phi_7": 0.11176470588235295,
+        "phi_8": 0.7470588235294118,
+        "phi_9": 0.9823529411764705,
+        "phi_10": 0.11176470588235295,
+        "phi_11": 0.9882352941176471,
+        "phi_12": 0.9852941176470589,
+        "phi_13": 0.11176470588235295,
+        "phi_14": 0.041176470588235294,
+        "phi_15": 0.9882352941176471
+      },
+      "per_scenario": {
+        "1": {
+          "n": 20,
+          "satisfaction_rate": 0.6766666666666665,
+          "full_pass_rate": 0.0
+        },
+        "2": {
+          "n": 20,
+          "satisfaction_rate": 0.6799999999999999,
+          "full_pass_rate": 0.0
+        },
+        "3": {
+          "n": 20,
+          "satisfaction_rate": 0.6566666666666665,
+          "full_pass_rate": 0.0
+        },
+        "4": {
+          "n": 20,
+          "satisfaction_rate": 0.5066666666666666,
+          "full_pass_rate": 0.0
+        },
+        "5": {
+          "n": 20,
+          "satisfaction_rate": 0.5599999999999999,
+          "full_pass_rate": 0.0
+        },
+        "6": {
+          "n": 20,
+          "satisfaction_rate": 0.5733333333333333,
+          "full_pass_rate": 0.0
+        },
+        "7": {
+          "n": 20,
+          "satisfaction_rate": 0.48999999999999994,
+          "full_pass_rate": 0.0
+        },
+        "8": {
+          "n": 20,
+          "satisfaction_rate": 0.6699999999999999,
+          "full_pass_rate": 0.0
+        },
+        "9": {
+          "n": 20,
+          "satisfaction_rate": 0.5433333333333333,
+          "full_pass_rate": 0.0
+        },
+        "10": {
+          "n": 20,
+          "satisfaction_rate": 0.6466666666666665,
+          "full_pass_rate": 0.0
+        },
+        "11": {
+          "n": 20,
+          "satisfaction_rate": 0.6666666666666665,
+          "full_pass_rate": 0.0
+        },
+        "12": {
+          "n": 20,
+          "satisfaction_rate": 0.6666666666666666,
+          "full_pass_rate": 0.0
+        },
+        "13": {
+          "n": 20,
+          "satisfaction_rate": 0.6833333333333332,
+          "full_pass_rate": 0.0
+        },
+        "14": {
+          "n": 20,
+          "satisfaction_rate": 0.7066666666666666,
+          "full_pass_rate": 0.0
+        },
+        "15": {
+          "n": 20,
+          "satisfaction_rate": 0.6333333333333332,
+          "full_pass_rate": 0.0
+        },
+        "16": {
+          "n": 20,
+          "satisfaction_rate": 0.7266666666666667,
+          "full_pass_rate": 0.0
+        },
+        "17": {
+          "n": 20,
+          "satisfaction_rate": 0.6666666666666665,
+          "full_pass_rate": 0.0
+        }
+      },
+      "train_data": {
+        "n": 1736,
+        "satisfaction_rate": 0.44385560675883257,
+        "parse_rate": 0.9694700460829493,
+        "pairs": 852,
+        "prompts_with_pairs": 217,
+        "mean_pair_gap": 6.822769953051643
+      },
+      "train": {
+        "pairs": 852,
+        "optimizer_steps": 106,
+        "train_seconds": 212.0,
+        "final_train_loss": 0.4088161216591889
+      },
+      "vs_base": {
+        "satisfaction_rate": {
+          "diff": 0.5515686274509805,
+          "ci95": [
+            0.5233333333333334,
+            0.5784313725490198
+          ],
+          "p_value": 0.0,
+          "n_prompts": 34
+        },
+        "full_pass_rate": {
+          "diff": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "p_value": 1.0,
+          "n_prompts": 34
+        }
+      }
+    },
+    {
+      "round": 3,
+      "label": "Fine-tuned (round 3, final)",
+      "satisfaction_rate": 0.7915686274509803,
+      "satisfaction_ci95": [
+        0.7862745098039217,
+        0.7962745098039216
+      ],
+      "full_pass_rate": 0.0029411764705882353,
+      "full_pass_ci95": [
+        0.0,
+        0.008823529411764706
+      ],
+      "parse_rate": 1.0,
+      "mean_score": 11.873529411764705,
+      "n_eval": 340,
+      "seen_satisfaction": 0.788974358974359,
+      "heldout_satisfaction": 0.7999999999999999,
+      "score_histogram": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        18,
+        3,
+        310,
+        6,
+        0,
+        1
+      ],
+      "per_spec": {
+        "phi_1": 0.2,
+        "phi_2": 0.9911764705882353,
+        "phi_3": 0.9411764705882353,
+        "phi_4": 0.22058823529411764,
+        "phi_5": 0.9941176470588236,
+        "phi_6": 0.9970588235294118,
+        "phi_7": 0.8029411764705883,
+        "phi_8": 0.95,
+        "phi_9": 0.9941176470588236,
+        "phi_10": 0.8029411764705883,
+        "phi_11": 0.9970588235294118,
+        "phi_12": 0.9911764705882353,
+        "phi_13": 0.8029411764705883,
+        "phi_14": 0.18823529411764706,
+        "phi_15": 1.0
+      },
+      "per_scenario": {
+        "1": {
+          "n": 20,
+          "satisfaction_rate": 0.7833333333333334,
+          "full_pass_rate": 0.0
+        },
+        "2": {
+          "n": 20,
+          "satisfaction_rate": 0.7666666666666668,
+          "full_pass_rate": 0.0
+        },
+        "3": {
+          "n": 20,
+          "satisfaction_rate": 0.7933333333333336,
+          "full_pass_rate": 0.0
+        },
+        "4": {
+          "n": 20,
+          "satisfaction_rate": 0.8000000000000002,
+          "full_pass_rate": 0.0
+        },
+        "5": {
+          "n": 20,
+          "satisfaction_rate": 0.7866666666666668,
+          "full_pass_rate": 0.0
+        },
+        "6": {
+          "n": 20,
+          "satisfaction_rate": 0.7933333333333336,
+          "full_pass_rate": 0.0
+        },
+        "7": {
+          "n": 20,
+          "satisfaction_rate": 0.7933333333333336,
+          "full_pass_rate": 0.0
+        },
+        "8": {
+          "n": 20,
+          "satisfaction_rate": 0.8000000000000002,
+          "full_pass_rate": 0.0
+        },
+        "9": {
+          "n": 20,
+          "satisfaction_rate": 0.7866666666666668,
+          "full_pass_rate": 0.0
+        },
+        "10": {
+          "n": 20,
+          "satisfaction_rate": 0.7933333333333334,
+          "full_pass_rate": 0.0
+        },
+        "11": {
+          "n": 20,
+          "satisfaction_rate": 0.7966666666666669,
+          "full_pass_rate": 0.0
+        },
+        "12": {
+          "n": 20,
+          "satisfaction_rate": 0.8000000000000002,
+          "full_pass_rate": 0.0
+        },
+        "13": {
+          "n": 20,
+          "satisfaction_rate": 0.8100000000000002,
+          "full_pass_rate": 0.05
+        },
+        "14": {
+          "n": 20,
+          "satisfaction_rate": 0.7800000000000002,
+          "full_pass_rate": 0.0
+        },
+        "15": {
+          "n": 20,
+          "satisfaction_rate": 0.7700000000000002,
+          "full_pass_rate": 0.0
+        },
+        "16": {
+          "n": 20,
+          "satisfaction_rate": 0.8000000000000002,
+          "full_pass_rate": 0.0
+        },
+        "17": {
+          "n": 20,
+          "satisfaction_rate": 0.8033333333333335,
+          "full_pass_rate": 0.0
+        }
+      },
+      "train_data": {
+        "n": 1736,
+        "satisfaction_rate": 0.6700076804915515,
+        "parse_rate": 0.9959677419354839,
+        "pairs": 769,
+        "prompts_with_pairs": 214,
+        "mean_pair_gap": 3.3159947984395317
+      },
+      "train": {
+        "pairs": 769,
+        "optimizer_steps": 96,
+        "train_seconds": 191.9,
+        "final_train_loss": 0.3995377030223608
+      },
+      "vs_base": {
+        "satisfaction_rate": {
+          "diff": 0.7105882352941177,
+          "ci95": [
+            0.6892156862745099,
+            0.7298039215686274
+          ],
+          "p_value": 0.0,
+          "n_prompts": 34
+        },
+        "full_pass_rate": {
+          "diff": 0.0029411764705882353,
+          "ci95": [
+            0.0,
+            0.008823529411764707
+          ],
+          "p_value": 1.0,
+          "n_prompts": 34
+        }
+      }
+    }
+  ],
+  "config": {
+    "base_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "rounds": 3,
+    "train_samples_per_prompt": 8,
+    "train_temperature": 1.0,
+    "train_top_p": 0.95,
+    "min_gap": 1,
+    "max_pairs_per_prompt": 4,
+    "min_pairs": 32,
+    "epochs": 2.0,
+    "learning_rate": 5e-05,
+    "beta": 0.1,
+    "batch_size": 8,
+    "grad_accum": 2,
+    "lora_r": 16,
+    "lora_alpha": 32,
+    "rpo_alpha": null,
+    "eval_samples": 10,
+    "eval_temperature": 0.7,
+    "eval_top_p": 0.9,
+    "max_new_tokens": 384,
+    "gen_batch_size": 32,
+    "engine": "both",
+    "seed": 0
+  },
+  "evaluation": {
+    "templates": [
+      "Write the controller rules for this driving scenario: {scenario}",
+      "Scenario: {scenario}\nGive the rule list the car should follow."
+    ],
+    "heldout_scenarios": [
+      4,
+      8,
+      12,
+      16
+    ],
+    "num_specs": 15,
+    "metric": "mean fraction of the 15 LTL specifications satisfied per response",
+    "ci": "95% cluster bootstrap over evaluation prompts",
+    "test": "sign-flip permutation test over prompts (paired)"
+  }
+}

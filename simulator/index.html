@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LogicTune Controller Replay</title>
+  <meta name="description" content="Replay of language-model driving controllers before and after DPO fine-tuning with formal-methods feedback. Every controller, score, and verdict comes from the recorded evaluation run.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232a78d6'/%3E%3Cpath d='M9 22V10h3v9h6v3z' fill='white'/%3E%3Ccircle cx='22' cy='12' r='3' fill='%23eb6834'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">LT</span>
+        <div>
+          <h1>LogicTune controller replay</h1>
+          <p class="sub">Recorded LLM controllers, parsed to automata and model checked against 15 LTL specifications.</p>
+        </div>
+      </div>
+      <nav class="links">
+        <a href="#replay">Replay</a>
+        <a href="#results">Results</a>
+        <a href="#method">Method</a>
+        <a id="repo-link" href="https://github.com/alirafiqmalik/LogicTune">Repository</a>
+        <button id="theme-btn" class="ghost" type="button" aria-label="Switch color theme">Theme</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="run-bar"><label>Recorded run <select id="run" aria-label="Recorded run"></select></label></div>
+    <section class="tiles" id="tiles" aria-label="Headline results"></section>
+    <p class="prov" id="provenance">Loading recorded results…</p>
+
+    <section id="replay" class="card">
+      <div class="card-head">
+        <h2>Replay a recorded controller</h2>
+        <p class="hint">Both cars face the same scenario timeline. Each car runs only the rules parsed from one recorded model response. Rules are checked top to bottom on every tick; the first rule whose condition holds sets the action.</p>
+      </div>
+      <div class="controls">
+        <label>Scenario
+          <select id="scenario"></select>
+        </label>
+        <div class="ctl-group" role="group" aria-label="Playback">
+          <button id="play" type="button" class="primary">Play</button>
+          <button id="reset" type="button">Reset</button>
+          <label class="speed">Speed <input id="speed" type="range" min="0.25" max="4" step="0.25" value="1.5"><output id="speed-out">1.5×</output></label>
+        </div>
+      </div>
+      <p class="scenario-text" id="scenario-text"></p>
+      <div class="strip-wrap">
+        <div class="strip-head"><span>Recorded samples for this scenario (score out of 15). Select one to replay it in both lanes.</span></div>
+        <div id="strip" class="strip"></div>
+      </div>
+      <div class="lanes">
+        <article class="lane" data-lane="0"></article>
+        <article class="lane" data-lane="1"></article>
+      </div>
+    </section>
+
+    <section id="results" class="card">
+      <div class="card-head">
+        <h2>Measured results</h2>
+        <p class="hint" id="results-hint"></p>
+      </div>
+      <div class="grid2">
+        <figure class="chart-card">
+          <figcaption><b>Specification satisfaction by DPO round</b><span>Mean share of the 15 specifications satisfied per response; band is the 95% bootstrap interval.</span></figcaption>
+          <div id="chart-rounds" class="chart"></div>
+        </figure>
+        <figure class="chart-card">
+          <figcaption><b>Full pass rate by DPO round</b><span>Share of responses that satisfy all 15 specifications.</span></figcaption>
+          <div id="chart-fullpass" class="chart"></div>
+        </figure>
+      </div>
+      <div class="grid2">
+        <figure class="chart-card">
+          <figcaption><b>Satisfaction of each specification</b><span class="legend"><i class="sw base"></i>Base <i class="sw ft"></i>Fine-tuned (final) · number is the change in points</span></figcaption>
+          <div id="chart-specs" class="chart"></div>
+        </figure>
+        <figure class="chart-card">
+          <figcaption><b>Satisfaction per scenario</b><span class="legend"><i class="sw base"></i>Base <i class="sw ft"></i>Fine-tuned (final) · ◆ scenario held out of training</span></figcaption>
+          <div id="chart-scen" class="chart"></div>
+        </figure>
+      </div>
+      <details class="table-view">
+        <summary>Table view of all rounds</summary>
+        <div id="rounds-table"></div>
+      </details>
+      <p class="downloads">Raw data for this run: <a data-file="summary.json" href="#">summary.json</a> · <a data-file="rounds.csv" href="#">rounds.csv</a> · <a data-file="eval_samples.csv" href="#">eval_samples.csv</a> · <a data-file="per_spec.csv" href="#">per_spec.csv</a> · <a data-file="per_scenario.csv" href="#">per_scenario.csv</a> · <a data-file="training_curves.csv" href="#">training_curves.csv</a> · <a data-file="replay.json" href="#">replay.json</a></p>
+    </section>
+
+    <section id="method" class="card">
+      <div class="card-head"><h2>How a score is computed</h2></div>
+      <ol class="steps">
+        <li><b>Prompt.</b> The model gets a driving scenario and a fixed system prompt that lists the propositions and actions.</li>
+        <li><b>Parse (GLM2FSA).</b> The response becomes an ordered list of guarded rules: a one-state automaton with prioritized transitions. A phrase that names no known proposition becomes a free Boolean atom.</li>
+        <li><b>Model check.</b> The controller is composed with an unconstrained environment (fair: the light is eventually green and clear) and checked with nuXmv against the 15 LTL specifications. If no rule applies, any action is possible.</li>
+        <li><b>Score.</b> The score is the number of satisfied specifications. During training, higher-scored responses are preferred in DPO pairs.</li>
+      </ol>
+      <div class="spec-table-wrap"><table class="spec-table" id="spec-table"><thead><tr><th>Spec</th><th>Formula</th><th>Meaning</th></tr></thead><tbody></tbody></table></div>
+      <p class="hint">The simulator evaluates free atoms as false and checks the state-action invariants (φ2, φ3, φ5, φ6, φ9, φ11, φ12, φ14, φ15) at run time. The 15 verdicts next to each lane come from the model checker, not from the simulation.</p>
+    </section>
+  </main>
+  <footer class="wrap foot">LogicTune · data from <code>results/latest</code> in the repository · <span id="foot-commit"></span></footer>
+
+  <template id="lane-tpl">
+    <div class="lane-head">
+      <select class="model" aria-label="Model for this lane"></select>
+      <span class="score-pill"></span>
+    </div>
+    <div class="canvas-box">
+      <canvas width="600" height="600" aria-label="Intersection simulation"></canvas>
+      <div class="hud"><span class="hud-label">Action</span><span class="hud-action">—</span><span class="hud-rule"></span></div>
+      <div class="outcome" hidden></div>
+    </div>
+    <div class="verdicts" aria-label="Model-checking verdicts"></div>
+    <div class="monitor"><b>Runtime monitor</b><ul class="violations"><li class="muted">No violation yet.</li></ul></div>
+    <div class="rules-box"><b>Parsed rules</b><ol class="rules"></ol><p class="free muted"></p></div>
+    <details class="response"><summary>Recorded response</summary><p class="prompt"></p><pre></pre></details>
+  </template>
+
+  <script src="assets/sim.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>

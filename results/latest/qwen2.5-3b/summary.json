@@ -1,0 +1,738 @@
+{
+  "schema_version": 1,
+  "label": "Qwen/Qwen2.5-3B-Instruct - iterative DPO with formal-methods feedback",
+  "provenance": {
+    "run_name": "qwen3b-r5",
+    "exported_at": "2026-11-09T20:03:00+00:00",
+    "source_commit": "17f2a0e9e5428c46aeb197a86f1509ea3c32cc40",
+    "wall_seconds": 2841.1,
+    "gpu": "NVIDIA L40S",
+    "slurm_jobs": [
+      "66985702"
+    ]
+  },
+  "headline": {
+    "base_model": "Qwen/Qwen2.5-3B-Instruct",
+    "base_satisfaction": 0.2866666666666667,
+    "final_satisfaction": 0.9641176470588235,
+    "final_round": 3,
+    "change_pp": 67.74509803921569,
+    "base_full_pass": 0.0,
+    "final_full_pass": 0.7029411764705882,
+    "change_ci95_pp": [
+      64.45049019607842,
+      71.1764705882353
+    ],
+    "p_value": 0.0,
+    "heldout_change_pp": 69.16666666666667
+  },
+  "rounds": [
+    {
+      "round": 0,
+      "label": "Base model",
+      "satisfaction_rate": 0.2866666666666667,
+      "satisfaction_ci95": [
+        0.2523529411764706,
+        0.32039705882352937
+      ],
+      "full_pass_rate": 0.0,
+      "full_pass_ci95": [
+        0.0,
+        0.0
+      ],
+      "parse_rate": 1.0,
+      "mean_score": 4.3,
+      "n_eval": 340,
+      "seen_satisfaction": 0.30333333333333334,
+      "heldout_satisfaction": 0.2325,
+      "score_histogram": [
+        58,
+        7,
+        2,
+        137,
+        13,
+        17,
+        23,
+        17,
+        21,
+        12,
+        19,
+        3,
+        1,
+        5,
+        5,
+        0
+      ],
+      "per_spec": {
+        "phi_1": 0.061764705882352944,
+        "phi_2": 0.2,
+        "phi_3": 0.21176470588235294,
+        "phi_4": 0.05588235294117647,
+        "phi_5": 0.19411764705882353,
+        "phi_6": 0.23529411764705882,
+        "phi_7": 0.7382352941176471,
+        "phi_8": 0.10882352941176471,
+        "phi_9": 0.06764705882352941,
+        "phi_10": 0.7382352941176471,
+        "phi_11": 0.36176470588235293,
+        "phi_12": 0.13529411764705881,
+        "phi_13": 0.7411764705882353,
+        "phi_14": 0.1588235294117647,
+        "phi_15": 0.2911764705882353
+      },
+      "per_scenario": {
+        "1": {
+          "n": 20,
+          "satisfaction_rate": 0.36333333333333334,
+          "full_pass_rate": 0.0
+        },
+        "2": {
+          "n": 20,
+          "satisfaction_rate": 0.38,
+          "full_pass_rate": 0.0
+        },
+        "3": {
+          "n": 20,
+          "satisfaction_rate": 0.24666666666666667,
+          "full_pass_rate": 0.0
+        },
+        "4": {
+          "n": 20,
+          "satisfaction_rate": 0.34666666666666673,
+          "full_pass_rate": 0.0
+        },
+        "5": {
+          "n": 20,
+          "satisfaction_rate": 0.30666666666666664,
+          "full_pass_rate": 0.0
+        },
+        "6": {
+          "n": 20,
+          "satisfaction_rate": 0.4,
+          "full_pass_rate": 0.0
+        },
+        "7": {
+          "n": 20,
+          "satisfaction_rate": 0.3366666666666667,
+          "full_pass_rate": 0.0
+        },
+        "8": {
+          "n": 20,
+          "satisfaction_rate": 0.19666666666666666,
+          "full_pass_rate": 0.0
+        },
+        "9": {
+          "n": 20,
+          "satisfaction_rate": 0.2833333333333333,
+          "full_pass_rate": 0.0
+        },
+        "10": {
+          "n": 20,
+          "satisfaction_rate": 0.2566666666666667,
+          "full_pass_rate": 0.0
+        },
+        "11": {
+          "n": 20,
+          "satisfaction_rate": 0.31000000000000005,
+          "full_pass_rate": 0.0
+        },
+        "12": {
+          "n": 20,
+          "satisfaction_rate": 0.21000000000000002,
+          "full_pass_rate": 0.0
+        },
+        "13": {
+          "n": 20,
+          "satisfaction_rate": 0.32666666666666677,
+          "full_pass_rate": 0.0
+        },
+        "14": {
+          "n": 20,
+          "satisfaction_rate": 0.15000000000000005,
+          "full_pass_rate": 0.0
+        },
+        "15": {
+          "n": 20,
+          "satisfaction_rate": 0.27999999999999997,
+          "full_pass_rate": 0.0
+        },
+        "16": {
+          "n": 20,
+          "satisfaction_rate": 0.1766666666666667,
+          "full_pass_rate": 0.0
+        },
+        "17": {
+          "n": 20,
+          "satisfaction_rate": 0.30333333333333334,
+          "full_pass_rate": 0.0
+        }
+      }
+    },
+    {
+      "round": 1,
+      "label": "Fine-tuned (round 1)",
+      "satisfaction_rate": 0.6570588235294118,
+      "satisfaction_ci95": [
+        0.6186274509803922,
+        0.6941176470588236
+      ],
+      "full_pass_rate": 0.008823529411764706,
+      "full_pass_ci95": [
+        0.0,
+        0.020588235294117647
+      ],
+      "parse_rate": 1.0,
+      "mean_score": 9.855882352941176,
+      "n_eval": 340,
+      "seen_satisfaction": 0.6664102564102563,
+      "heldout_satisfaction": 0.6266666666666667,
+      "score_histogram": [
+        14,
+        0,
+        2,
+        10,
+        1,
+        1,
+        5,
+        11,
+        13,
+        46,
+        62,
+        86,
+        62,
+        8,
+        16,
+        3
+      ],
+      "per_spec": {
+        "phi_1": 0.35,
+        "phi_2": 0.7764705882352941,
+        "phi_3": 0.6470588235294118,
+        "phi_4": 0.17647058823529413,
+        "phi_5": 0.8735294117647059,
+        "phi_6": 0.8941176470588236,
+        "phi_7": 0.6352941176470588,
+        "phi_8": 0.48823529411764705,
+        "phi_9": 0.6352941176470588,
+        "phi_10": 0.6352941176470588,
+        "phi_11": 0.9147058823529411,
+        "phi_12": 0.7470588235294118,
+        "phi_13": 0.6352941176470588,
+        "phi_14": 0.5470588235294118,
+        "phi_15": 0.9
+      },
+      "per_scenario": {
+        "1": {
+          "n": 20,
+          "satisfaction_rate": 0.7466666666666666,
+          "full_pass_rate": 0.0
+        },
+        "2": {
+          "n": 20,
+          "satisfaction_rate": 0.7233333333333334,
+          "full_pass_rate": 0.0
+        },
+        "3": {
+          "n": 20,
+          "satisfaction_rate": 0.55,
+          "full_pass_rate": 0.0
+        },
+        "4": {
+          "n": 20,
+          "satisfaction_rate": 0.4666666666666666,
+          "full_pass_rate": 0.0
+        },
+        "5": {
+          "n": 20,
+          "satisfaction_rate": 0.5233333333333332,
+          "full_pass_rate": 0.0
+        },
+        "6": {
+          "n": 20,
+          "satisfaction_rate": 0.5799999999999998,
+          "full_pass_rate": 0.0
+        },
+        "7": {
+          "n": 20,
+          "satisfaction_rate": 0.5966666666666667,
+          "full_pass_rate": 0.0
+        },
+        "8": {
+          "n": 20,
+          "satisfaction_rate": 0.6666666666666665,
+          "full_pass_rate": 0.0
+        },
+        "9": {
+          "n": 20,
+          "satisfaction_rate": 0.6166666666666667,
+          "full_pass_rate": 0.0
+        },
+        "10": {
+          "n": 20,
+          "satisfaction_rate": 0.7099999999999999,
+          "full_pass_rate": 0.0
+        },
+        "11": {
+          "n": 20,
+          "satisfaction_rate": 0.6866666666666664,
+          "full_pass_rate": 0.0
+        },
+        "12": {
+          "n": 20,
+          "satisfaction_rate": 0.59,
+          "full_pass_rate": 0.1
+        },
+        "13": {
+          "n": 20,
+          "satisfaction_rate": 0.7566666666666666,
+          "full_pass_rate": 0.05
+        },
+        "14": {
+          "n": 20,
+          "satisfaction_rate": 0.7566666666666668,
+          "full_pass_rate": 0.0
+        },
+        "15": {
+          "n": 20,
+          "satisfaction_rate": 0.6733333333333331,
+          "full_pass_rate": 0.0
+        },
+        "16": {
+          "n": 20,
+          "satisfaction_rate": 0.7833333333333334,
+          "full_pass_rate": 0.0
+        },
+        "17": {
+          "n": 20,
+          "satisfaction_rate": 0.7433333333333334,
+          "full_pass_rate": 0.0
+        }
+      },
+      "train_data": {
+        "n": 1736,
+        "satisfaction_rate": 0.2792242703533026,
+        "parse_rate": 0.994815668202765,
+        "pairs": 844,
+        "prompts_with_pairs": 216,
+        "mean_pair_gap": 7.3163507109004735
+      },
+      "train": {
+        "pairs": 844,
+        "optimizer_steps": 104,
+        "train_seconds": 429.5,
+        "final_train_loss": 0.3407617492171434
+      },
+      "vs_base": {
+        "satisfaction_rate": {
+          "diff": 0.370392156862745,
+          "ci95": [
+            0.31587745098039216,
+            0.42549509803921565
+          ],
+          "p_value": 0.0,
+          "n_prompts": 34
+        },
+        "full_pass_rate": {
+          "diff": 0.008823529411764707,
+          "ci95": [
+            0.0,
+            0.020588235294117647
+          ],
+          "p_value": 0.248,
+          "n_prompts": 34
+        }
+      }
+    },
+    {
+      "round": 2,
+      "label": "Fine-tuned (round 2)",
+      "satisfaction_rate": 0.8466666666666667,
+      "satisfaction_ci95": [
+        0.8215686274509804,
+        0.8741176470588234
+      ],
+      "full_pass_rate": 0.23823529411764705,
+      "full_pass_ci95": [
+        0.1264705882352941,
+        0.36470588235294116
+      ],
+      "parse_rate": 1.0,
+      "mean_score": 12.7,
+      "n_eval": 340,
+      "seen_satisfaction": 0.8576923076923078,
+      "heldout_satisfaction": 0.8108333333333334,
+      "score_histogram": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        6,
+        19,
+        17,
+        169,
+        21,
+        26,
+        81
+      ],
+      "per_spec": {
+        "phi_1": 0.6441176470588236,
+        "phi_2": 1.0,
+        "phi_3": 0.95,
+        "phi_4": 0.6058823529411764,
+        "phi_5": 1.0,
+        "phi_6": 0.9970588235294118,
+        "phi_7": 0.6647058823529411,
+        "phi_8": 0.9176470588235294,
+        "phi_9": 0.9588235294117647,
+        "phi_10": 0.6647058823529411,
+        "phi_11": 1.0,
+        "phi_12": 0.9823529411764705,
+        "phi_13": 0.6647058823529411,
+        "phi_14": 0.65,
+        "phi_15": 1.0
+      },
+      "per_scenario": {
+        "1": {
+          "n": 20,
+          "satisfaction_rate": 0.8400000000000001,
+          "full_pass_rate": 0.0
+        },
+        "2": {
+          "n": 20,
+          "satisfaction_rate": 0.8433333333333335,
+          "full_pass_rate": 0.15
+        },
+        "3": {
+          "n": 20,
+          "satisfaction_rate": 0.8300000000000001,
+          "full_pass_rate": 0.05
+        },
+        "4": {
+          "n": 20,
+          "satisfaction_rate": 0.7900000000000003,
+          "full_pass_rate": 0.15
+        },
+        "5": {
+          "n": 20,
+          "satisfaction_rate": 0.7966666666666669,
+          "full_pass_rate": 0.0
+        },
+        "6": {
+          "n": 20,
+          "satisfaction_rate": 0.89,
+          "full_pass_rate": 0.45
+        },
+        "7": {
+          "n": 20,
+          "satisfaction_rate": 0.7766666666666667,
+          "full_pass_rate": 0.05
+        },
+        "8": {
+          "n": 20,
+          "satisfaction_rate": 0.8000000000000002,
+          "full_pass_rate": 0.0
+        },
+        "9": {
+          "n": 20,
+          "satisfaction_rate": 0.8166666666666668,
+          "full_pass_rate": 0.0
+        },
+        "10": {
+          "n": 20,
+          "satisfaction_rate": 0.8433333333333335,
+          "full_pass_rate": 0.15
+        },
+        "11": {
+          "n": 20,
+          "satisfaction_rate": 0.8600000000000001,
+          "full_pass_rate": 0.2
+        },
+        "12": {
+          "n": 20,
+          "satisfaction_rate": 0.9,
+          "full_pass_rate": 0.4
+        },
+        "13": {
+          "n": 20,
+          "satisfaction_rate": 1.0,
+          "full_pass_rate": 1.0
+        },
+        "14": {
+          "n": 20,
+          "satisfaction_rate": 1.0,
+          "full_pass_rate": 1.0
+        },
+        "15": {
+          "n": 20,
+          "satisfaction_rate": 0.7566666666666666,
+          "full_pass_rate": 0.0
+        },
+        "16": {
+          "n": 20,
+          "satisfaction_rate": 0.7533333333333332,
+          "full_pass_rate": 0.0
+        },
+        "17": {
+          "n": 20,
+          "satisfaction_rate": 0.8966666666666667,
+          "full_pass_rate": 0.45
+        }
+      },
+      "train_data": {
+        "n": 1736,
+        "satisfaction_rate": 0.6814132104454685,
+        "parse_rate": 1.0,
+        "pairs": 813,
+        "prompts_with_pairs": 216,
+        "mean_pair_gap": 3.4981549815498156
+      },
+      "train": {
+        "pairs": 813,
+        "optimizer_steps": 102,
+        "train_seconds": 333.3,
+        "final_train_loss": 0.37598298548483383
+      },
+      "vs_base": {
+        "satisfaction_rate": {
+          "diff": 0.5599999999999998,
+          "ci95": [
+            0.5188186274509803,
+            0.6031421568627451
+          ],
+          "p_value": 0.0,
+          "n_prompts": 34
+        },
+        "full_pass_rate": {
+          "diff": 0.23823529411764705,
+          "ci95": [
+            0.1264705882352941,
+            0.3647058823529412
+          ],
+          "p_value": 5e-05,
+          "n_prompts": 34
+        }
+      }
+    },
+    {
+      "round": 3,
+      "label": "Fine-tuned (round 3, final)",
+      "satisfaction_rate": 0.9641176470588235,
+      "satisfaction_ci95": [
+        0.9511764705882354,
+        0.9758823529411765
+      ],
+      "full_pass_rate": 0.7029411764705882,
+      "full_pass_ci95": [
+        0.5941176470588235,
+        0.8029411764705883
+      ],
+      "parse_rate": 1.0,
+      "mean_score": 14.461764705882352,
+      "n_eval": 340,
+      "seen_satisfaction": 0.9764102564102565,
+      "heldout_satisfaction": 0.9241666666666667,
+      "score_histogram": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        30,
+        19,
+        51,
+        239
+      ],
+      "per_spec": {
+        "phi_1": 0.9558823529411765,
+        "phi_2": 1.0,
+        "phi_3": 0.9441176470588235,
+        "phi_4": 0.9411764705882353,
+        "phi_5": 1.0,
+        "phi_6": 0.9823529411764705,
+        "phi_7": 0.9529411764705882,
+        "phi_8": 0.8470588235294118,
+        "phi_9": 0.9882352941176471,
+        "phi_10": 0.9529411764705882,
+        "phi_11": 1.0,
+        "phi_12": 0.961764705882353,
+        "phi_13": 0.9529411764705882,
+        "phi_14": 0.9823529411764705,
+        "phi_15": 1.0
+      },
+      "per_scenario": {
+        "1": {
+          "n": 20,
+          "satisfaction_rate": 0.99,
+          "full_pass_rate": 0.95
+        },
+        "2": {
+          "n": 20,
+          "satisfaction_rate": 0.9400000000000001,
+          "full_pass_rate": 0.7
+        },
+        "3": {
+          "n": 20,
+          "satisfaction_rate": 0.99,
+          "full_pass_rate": 0.95
+        },
+        "4": {
+          "n": 20,
+          "satisfaction_rate": 0.9800000000000001,
+          "full_pass_rate": 0.9
+        },
+        "5": {
+          "n": 20,
+          "satisfaction_rate": 0.9566666666666667,
+          "full_pass_rate": 0.6
+        },
+        "6": {
+          "n": 20,
+          "satisfaction_rate": 1.0,
+          "full_pass_rate": 1.0
+        },
+        "7": {
+          "n": 20,
+          "satisfaction_rate": 1.0,
+          "full_pass_rate": 1.0
+        },
+        "8": {
+          "n": 20,
+          "satisfaction_rate": 0.9100000000000001,
+          "full_pass_rate": 0.2
+        },
+        "9": {
+          "n": 20,
+          "satisfaction_rate": 0.9800000000000001,
+          "full_pass_rate": 0.85
+        },
+        "10": {
+          "n": 20,
+          "satisfaction_rate": 0.9633333333333335,
+          "full_pass_rate": 0.55
+        },
+        "11": {
+          "n": 20,
+          "satisfaction_rate": 0.95,
+          "full_pass_rate": 0.4
+        },
+        "12": {
+          "n": 20,
+          "satisfaction_rate": 0.9400000000000001,
+          "full_pass_rate": 0.6
+        },
+        "13": {
+          "n": 20,
+          "satisfaction_rate": 1.0,
+          "full_pass_rate": 1.0
+        },
+        "14": {
+          "n": 20,
+          "satisfaction_rate": 1.0,
+          "full_pass_rate": 1.0
+        },
+        "15": {
+          "n": 20,
+          "satisfaction_rate": 0.9566666666666667,
+          "full_pass_rate": 0.45
+        },
+        "16": {
+          "n": 20,
+          "satisfaction_rate": 0.8666666666666668,
+          "full_pass_rate": 0.05
+        },
+        "17": {
+          "n": 20,
+          "satisfaction_rate": 0.9666666666666668,
+          "full_pass_rate": 0.75
+        }
+      },
+      "train_data": {
+        "n": 1736,
+        "satisfaction_rate": 0.8442012288786482,
+        "parse_rate": 1.0,
+        "pairs": 571,
+        "prompts_with_pairs": 181,
+        "mean_pair_gap": 2.763572679509632
+      },
+      "train": {
+        "pairs": 571,
+        "optimizer_steps": 70,
+        "train_seconds": 282.2,
+        "final_train_loss": 0.34397896357945035
+      },
+      "vs_base": {
+        "satisfaction_rate": {
+          "diff": 0.6774509803921569,
+          "ci95": [
+            0.6445049019607842,
+            0.7117647058823531
+          ],
+          "p_value": 0.0,
+          "n_prompts": 34
+        },
+        "full_pass_rate": {
+          "diff": 0.7029411764705882,
+          "ci95": [
+            0.5941176470588236,
+            0.8029411764705882
+          ],
+          "p_value": 0.0,
+          "n_prompts": 34
+        }
+      }
+    }
+  ],
+  "config": {
+    "base_model": "Qwen/Qwen2.5-3B-Instruct",
+    "rounds": 3,
+    "train_samples_per_prompt": 8,
+    "train_temperature": 1.0,
+    "train_top_p": 0.95,
+    "min_gap": 1,
+    "max_pairs_per_prompt": 4,
+    "min_pairs": 32,
+    "epochs": 2.0,
+    "learning_rate": 5e-05,
+    "beta": 0.1,
+    "batch_size": 4,
+    "grad_accum": 4,
+    "lora_r": 16,
+    "lora_alpha": 32,
+    "rpo_alpha": null,
+    "eval_samples": 10,
+    "eval_temperature": 0.7,
+    "eval_top_p": 0.9,
+    "max_new_tokens": 384,
+    "gen_batch_size": 32,
+    "engine": "both",
+    "seed": 0
+  },
+  "evaluation": {
+    "templates": [
+      "Write the controller rules for this driving scenario: {scenario}",
+      "Scenario: {scenario}\nGive the rule list the car should follow."
+    ],
+    "heldout_scenarios": [
+      4,
+      8,
+      12,
+      16
+    ],
+    "num_specs": 15,
+    "metric": "mean fraction of the 15 LTL specifications satisfied per response",
+    "ci": "95% cluster bootstrap over evaluation prompts",
+    "test": "sign-flip permutation test over prompts (paired)"
+  }
+}

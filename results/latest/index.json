@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "runs": [
+    {
+      "id": "qwen2.5-3b",
+      "path": "qwen2.5-3b/",
+      "label": "Qwen/Qwen2.5-3B-Instruct - iterative DPO with formal-methods feedback",
+      "base_model": "Qwen/Qwen2.5-3B-Instruct",
+      "base_satisfaction": 0.2866666666666667,
+      "final_satisfaction": 0.9641176470588235,
+      "final_round": 3,
+      "exported_at": "2026-11-09T20:03:00+00:00"
+    },
+    {
+      "id": "tinyllama-1.1b",
+      "path": "tinyllama-1.1b/",
+      "label": "TinyLlama/TinyLlama-1.1B-Chat-v1.0 - iterative DPO with formal-methods feedback",
+      "base_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+      "base_satisfaction": 0.08098039215686274,
+      "final_satisfaction": 0.7915686274509803,
+      "final_round": 3,
+      "exported_at": "2026-11-09T19:44:42+00:00"
+    }
+  ],
+  "default": "qwen2.5-3b"
+}
