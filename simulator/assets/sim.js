@@ -149,7 +149,8 @@
       this.decision = decide(this.rules, this.vars);
       this.violations = [];
       this.seen = new Set();
-      this.done = false;
+      this.done = false; // the car's outcome is decided (the environment may still run)
+      this.doneAt = null; // seconds
       this.outcome = null;
       this.flash = 0;
       this.draw();
@@ -161,12 +162,21 @@
     // The extra right-hand lane exists only in scenarios with a side car.
     hasMergeLane() { return !!(this.scenario && this.scenario.init && this.scenario.init.side_car); }
 
+    // The environment (time, timeline, other road users) runs for the whole
+    // episode, so every lane keeps showing the shared timeline. The car, the
+    // controller and the monitor stop once the car's outcome is decided.
     step(dt) {
-      if (this.done) return;
-      this.t += dt;
+      if (this.t >= EPISODE_TICKS) return;
+      this.t = Math.min(EPISODE_TICKS, this.t + dt);
       for (const ev of this.events) {
         if (!ev.fired && this.t >= ev.t) { Object.assign(this.vars, ev.set); ev.fired = true; }
       }
+      if (!this.done) this.stepCar(dt);
+      if (this.flash > 0) this.flash -= dt;
+      this.onTick(this);
+    }
+
+    stepCar(dt) {
       // A stop sign is obeyed once the car has waited at the line.
       if (this.vars.stop_sign && !this.signServed) {
         const atLine = this.car.y >= STOP_Y && this.car.y <= STOP_Y + 60 && this.car.speed < 0.05;
@@ -187,15 +197,17 @@
         }
       }
       this.move(a, dt);
-      if (this.flash > 0) this.flash -= dt;
       if (this.car.x < -40 || this.car.x > W + 40 || this.car.y < -40) {
-        this.done = true;
-        this.outcome = "crossed";
+        this.finish("crossed");
       } else if (this.t >= EPISODE_TICKS) {
-        this.done = true;
-        this.outcome = this.car.mode === "approach" ? "waiting" : "in intersection";
+        this.finish(this.car.mode === "approach" ? "waiting" : "in intersection");
       }
-      this.onTick(this);
+    }
+
+    finish(outcome) {
+      this.done = true;
+      this.outcome = outcome;
+      this.doneAt = this.t / 60;
     }
 
     move(action, dt) {

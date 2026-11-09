@@ -175,19 +175,18 @@
     const out = $(".outcome", node);
     if (lane.done) {
       out.hidden = false;
-      out.textContent = lane.outcome === "crossed" ? "Crossed the intersection" : lane.outcome === "waiting" ? "Still waiting at the stop line" : "Stopped inside the intersection";
+      out.textContent = lane.outcome === "crossed" ? `Crossed the intersection at ${lane.doneAt.toFixed(1)} s` : lane.outcome === "waiting" ? "Still waiting at the stop line" : "Stopped inside the intersection";
     } else out.hidden = true;
   }
 
   // -------------------------------------------------------------- playback
   let raf = null;
   function frame() {
-    let running = false;
-    state.lanes.forEach((L, i) => {
-      if (!L.lane.done) { L.lane.step(state.speed); running = true; }
-      L.lane.draw();
-      updateLaneHud(i);
-    });
+    // Every lane steps until both cars are done, so a lane whose car has left
+    // keeps showing the shared timeline (lights, other road users, time).
+    state.lanes.forEach((L) => L.lane.step(state.speed));
+    state.lanes.forEach((L, i) => { L.lane.draw(); updateLaneHud(i); });
+    const running = state.lanes.some((L) => !L.lane.done);
     if (running && state.playing) raf = requestAnimationFrame(frame);
     else { state.playing = false; $("#play").textContent = "Play"; }
   }
