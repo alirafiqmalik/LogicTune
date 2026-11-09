@@ -19,6 +19,9 @@
   --grid: #e6e5e1;
   --band: rgba(42, 120, 214, 0.12);
   --rule-hit: rgba(42, 120, 214, 0.12);
+  /* sample strip: score 0 is --surface-2, 15 is --score-hi; text switches to --score-hi-ink at 13+ */
+  --score-hi: #1d5fae;
+  --score-hi-ink: #fff;
   /* simulation */
   --sim-ground: #d9dccf;
   --sim-road: #5d6064;
@@ -39,6 +42,7 @@
     --series-base: #3987e5; --series-ft: #d95926; --series-mid: #8a8984;
     --good-ink: #5fd35f; --warning-ink: #fab219; --grid: #2c2c29; --band: rgba(57, 135, 229, 0.16);
     --rule-hit: rgba(57, 135, 229, 0.2);
+    --score-hi: #2d68b8; --score-hi-ink: var(--text);
     --sim-ground: #262823; --sim-road: #3c3f43; --sim-marking: #d8d8d3; --sim-crosswalk: rgba(255,255,255,0.35);
     --sim-ego: #3987e5; --sim-other: #e66767; --sim-glass: #b7d3f6; --sim-ped: #fab219; --sim-box: #0d0e10; --sim-off: #2a2c30;
   }
@@ -50,6 +54,7 @@
   --series-base: #3987e5; --series-ft: #d95926; --series-mid: #8a8984;
   --good-ink: #5fd35f; --warning-ink: #fab219; --grid: #2c2c29; --band: rgba(57, 135, 229, 0.16);
   --rule-hit: rgba(57, 135, 229, 0.2);
+  --score-hi: #2d68b8; --score-hi-ink: var(--text);
   --sim-ground: #262823; --sim-road: #3c3f43; --sim-marking: #d8d8d3; --sim-crosswalk: rgba(255,255,255,0.35);
   --sim-ego: #3987e5; --sim-other: #e66767; --sim-glass: #b7d3f6; --sim-ped: #fab219; --sim-box: #0d0e10; --sim-off: #2a2c30;
 }
@@ -116,7 +121,8 @@ section[tabindex="-1"]:focus-visible { outline: none; } /* sections focused by t
 .strip { display: grid; grid-template-columns: max-content 1fr; gap: 6px 10px; align-items: center; }
 .strip .who { font-size: 12.5px; color: var(--text-2); display: flex; align-items: center; gap: 6px; }
 .strip .cells { display: flex; gap: 3px; flex-wrap: wrap; }
-.cell { width: 26px; height: 26px; border-radius: 6px; border: 2px solid transparent; font-size: 11px; display: grid; place-items: center; cursor: pointer; padding: 0; color: var(--text); background: var(--surface-2); font-variant-numeric: tabular-nums; }
+.cell { width: 26px; height: 26px; border-radius: 6px; border: 2px solid transparent; font-size: 11px; display: grid; place-items: center; cursor: pointer; padding: 0; color: var(--text); background: color-mix(in oklab, var(--score-hi) var(--share, 0%), var(--surface-2)); font-variant-numeric: tabular-nums; }
+.cell.hi { color: var(--score-hi-ink); }
 .cell.sel { border-color: var(--text); }
 .cell .fill { display: none; }
 

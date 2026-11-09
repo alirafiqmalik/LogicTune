@@ -90,10 +90,10 @@
       samplesFor(mid, state.scenario).forEach((x, i) => {
         const b = document.createElement("button");
         b.type = "button";
-        b.className = "cell" + (i === state.sample ? " sel" : "");
-        const share = Math.round((x.score / 15) * 85);
-        b.style.background = `color-mix(in oklab, var(--accent) ${share}%, var(--surface-2))`;
-        b.style.color = share > 50 ? "#fff" : "var(--text)";
+        // Background ramps from --surface-2 (0) to --score-hi (15). Light text
+        // from 13 up keeps every score at 4.5:1 or more in both themes.
+        b.className = "cell" + (i === state.sample ? " sel" : "") + (x.score >= 13 ? " hi" : "");
+        b.style.setProperty("--share", `${Math.round((x.score / 15) * 100)}%`);
         b.textContent = x.score;
         b.title = `Prompt template ${x.template + 1}, sample ${x.sample_idx + 1}: ${x.score}/15`;
         b.setAttribute("aria-label", b.title);
