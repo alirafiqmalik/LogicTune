@@ -33,6 +33,14 @@ python -m http.server 8000      # from the repository root
 # open http://localhost:8000/simulator/   (it reads ../results/latest/index.json)
 ```
 
+## Tests
+
+The simulator logic has a dependency-free test suite that runs with Node's built-in runner (Node 22 or newer):
+
+```bash
+node --test "simulator/tests/*.test.js"
+```
+
 ## Files
 
 | File | Role |

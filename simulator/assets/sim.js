@@ -74,7 +74,7 @@
   class Lane {
     constructor(canvas, opts) {
       this.canvas = canvas;
-      this.ctx = canvas.getContext("2d");
+      this.ctx = canvas ? canvas.getContext("2d") : null; // null: headless (tests)
       this.onTick = opts.onTick || (() => {});
       this.colors = opts.colors;
       this.load(null, [], 1);
@@ -171,6 +171,7 @@
 
     // ---------------------------------------------------------------- drawing
     draw() {
+      if (!this.ctx) return;
       const cv = this.canvas, ctx = this.ctx, k = this.colors();
       const dpr = global.devicePixelRatio || 1;
       const size = Math.min(cv.clientWidth || W, 640);
@@ -259,5 +260,7 @@
     ctx.strokeStyle = k.ground; ctx.lineWidth = 2; ctx.stroke();
   }
 
-  global.LogicTuneSim = { Lane, decide, evalGuard, PROPS, MONITORS, EPISODE_TICKS };
-})(window);
+  const api = { Lane, decide, evalGuard, PROPS, MONITORS, EPISODE_TICKS };
+  global.LogicTuneSim = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api; // Node tests
+})(typeof window !== "undefined" ? window : globalThis);

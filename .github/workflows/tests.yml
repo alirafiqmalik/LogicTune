@@ -20,6 +20,11 @@ jobs:
       - run: pip install -r requirements-cpu.txt
       - name: Unit tests (parser, verifier, nuXmv cross-check)
         run: python -m pytest -q tests
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Simulator tests (timelines, rules, motion, monitor, URL state)
+        run: node --test "simulator/tests/*.test.js"
       - name: Verification demo
         run: python main.py demo
       - name: Re-verify committed results
