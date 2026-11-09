@@ -7,6 +7,7 @@
   "use strict";
   const { Lane, hasTrafficLight, outcomeText, FAIR_GREEN_TICK } = window.LogicTuneSim;
   const Charts = window.LogicTuneCharts;
+  const ReplayState = window.LogicTuneState;
   const pct = Charts.pct;
   const SPEC_LABEL = (id) => "φ" + id.split("_")[1];
 
@@ -45,11 +46,7 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const scenarioById = (id) => state.data.scenarios.find((s) => s.id === id);
   const modelById = (id) => state.data.models.find((m) => m.id === id);
-  function samplesFor(modelId, scenarioId) {
-    return state.data.samples[modelId]
-      .filter((x) => x.scenario_id === scenarioId)
-      .sort((a, b) => a.template - b.template || a.sample_idx - b.sample_idx);
-  }
+  const samplesFor = (modelId, scenarioId) => ReplayState.samplesFor(state.data, modelId, scenarioId);
 
   // --------------------------------------------------------------- headline
   function renderTiles() {
@@ -129,7 +126,8 @@
 
   function renderLane(idx) {
     const L = state.lanes[idx], node = L.node;
-    const sample = samplesFor(state.models[idx], state.scenario)[state.sample];
+    const samples = samplesFor(state.models[idx], state.scenario);
+    const sample = samples[Math.min(state.sample, samples.length - 1)];
     const scen = scenarioById(state.scenario);
     L.sample = sample;
     L.lane.load(scen, sample.rules, scen.id);
@@ -234,14 +232,14 @@
 
   // ---------------------------------------------------------- url + theme
   function writeHash() {
-    history.replaceState(null, "", `#r=${state.run.id}&s=${state.scenario}&i=${state.sample}&a=${state.models[0]}&b=${state.models[1]}`);
+    history.replaceState(null, "", ReplayState.formatHash({ run: state.run.id, scenario: state.scenario, sample: state.sample, models: state.models }));
   }
+  // Apply the hash state; invalid values fall back to scenario 1, sample 0 and
+  // the run's first and last model (refresh() then rewrites a valid hash).
   function readHash() {
-    const p = new URLSearchParams(location.hash.slice(1));
-    if (p.get("s")) state.scenario = +p.get("s");
-    if (p.get("i")) state.sample = +p.get("i");
-    if (p.get("a") && modelById(p.get("a"))) state.models[0] = p.get("a");
-    if (p.get("b") && modelById(p.get("b"))) state.models[1] = p.get("b");
+    const ms = state.data.models;
+    const defaults = { scenario: state.data.scenarios[0].id, models: [ms[0].id, ms[ms.length - 1].id] };
+    Object.assign(state, ReplayState.resolveHash(ReplayState.parseHash(location.hash), state.data, defaults));
   }
   function initTheme() {
     let saved = null;
