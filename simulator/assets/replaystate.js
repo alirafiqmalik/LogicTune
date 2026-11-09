@@ -44,7 +44,16 @@
     return `#r=${st.run}&s=${st.scenario}&i=${st.sample}&a=${st.models[0]}&b=${st.models[1]}`;
   }
 
-  const api = { samplesFor, parseHash, resolveHash, formatHash };
+  // Where index.json lives, most likely first. The deployed site serves the
+  // results under data/ next to the page; a repository checkout serves the
+  // page from simulator/ and the results from ../results/latest/. Trying the
+  // likely one first keeps the console free of a 404.
+  function dataPrefixes(pathname) {
+    const local = "../results/latest/", deployed = "data/";
+    return /\/simulator\/(index\.html)?$/.test(pathname) ? [local, deployed] : [deployed, local];
+  }
+
+  const api = { samplesFor, parseHash, resolveHash, formatHash, dataPrefixes };
   global.LogicTuneState = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api; // Node tests
 })(typeof window !== "undefined" ? window : globalThis);

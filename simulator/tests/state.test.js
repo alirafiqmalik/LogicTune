@@ -45,3 +45,13 @@ test("samples are listed in strip order: prompt template, then sample index", ()
   assert.ok(xs.every((x) => x.scenario_id === 4));
   assert.deepEqual(xs.slice(9, 11).map((x) => [x.template, x.sample_idx]), [[0, 9], [1, 0]]);
 });
+
+test("the data folder is chosen from the page location: deployed site vs repository checkout", () => {
+  const local = ["../results/latest/", "data/"], deployed = ["data/", "../results/latest/"];
+  assert.deepEqual(st.dataPrefixes("/simulator/"), local);
+  assert.deepEqual(st.dataPrefixes("/simulator/index.html"), local);
+  assert.deepEqual(st.dataPrefixes("/work/LogicTune/simulator/"), local);
+  assert.deepEqual(st.dataPrefixes("/LogicTune/"), deployed);
+  assert.deepEqual(st.dataPrefixes("/LogicTune/index.html"), deployed);
+  assert.deepEqual(st.dataPrefixes("/"), deployed);
+});

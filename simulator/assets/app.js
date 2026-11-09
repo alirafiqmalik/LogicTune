@@ -22,7 +22,7 @@
     return r.json();
   }
   async function loadIndex() {
-    for (const prefix of ["data/", "../results/latest/"]) {
+    for (const prefix of ReplayState.dataPrefixes(location.pathname)) {
       try { return { prefix, index: await fetchJson(prefix + "index.json") }; } catch (e) { /* try next */ }
     }
     throw new Error("index.json not found");
