@@ -18,6 +18,12 @@
   ];
 
   // Environment changes over time (ticks at 1x speed, 60 ticks per second).
+  // The model checker assumes a fair environment: infinitely often the light
+  // is green and the intersection is clear (environment.py, FAIRNESS). Every
+  // timeline therefore ends in that state. Scenarios 10, 11, 12 and 16 have no
+  // traffic light (green_traffic_light is false, "not green"); it turns true
+  // at 6 s, after cross traffic has cleared, as fairness requires.
+  const FAIR_GREEN = { t: 360, set: { green_traffic_light: true } };
   const TIMELINE = {
     1: [{ t: 240, set: { pedestrian_in_front: false } }],
     2: [{ t: 240, set: { pedestrian_at_right: false } }],
@@ -26,11 +32,12 @@
     5: [{ t: 300, set: { car_from_left: false } }],
     8: [{ t: 300, set: { green_traffic_light: true } }],
     9: [{ t: 300, set: { car_from_left: false } }],
-    10: [{ t: 300, set: { car_from_left: false } }],
-    12: [{ t: 240, set: { car_from_left: false } }],
+    10: [{ t: 300, set: { car_from_left: false } }, FAIR_GREEN],
+    11: [FAIR_GREEN],
+    12: [{ t: 240, set: { car_from_left: false } }, FAIR_GREEN],
     13: [{ t: 300, set: { green_traffic_light: true } }],
     15: [{ t: 300, set: { side_car: false } }],
-    16: [{ t: 300, set: { car_from_right: false } }],
+    16: [{ t: 300, set: { car_from_right: false } }, FAIR_GREEN],
   };
   const EPISODE_TICKS = 900;
   const STOP_SIGN_HOLD = 45; // ticks stopped at the line before the sign counts as obeyed
