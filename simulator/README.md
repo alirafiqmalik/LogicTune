@@ -24,7 +24,7 @@ flowchart LR
 | Sample strip | all samples of the scenario | Score of each recorded sample; click to replay it in both lanes |
 | Results charts | `replay.json → rounds` | Satisfaction, full-pass rate, per-spec and per-scenario changes |
 
-Each scenario starts from its initial propositions (`prompts.SCENARIOS[i].init`) and changes them at fixed times: pedestrians clear after 4 s, cross traffic after 4-5 s, and red lights turn green after 5 s. Both lanes see the same timeline, and a stop sign counts as obeyed after the car has waited 0.75 s at the line. Free atoms are false in the simulation, while the model checker explores both values. The simulation is an illustration, and the score comes from the model checker.
+Each scenario starts from its initial propositions (`prompts.SCENARIOS[i].init`) and changes them at fixed times: pedestrians clear after 4 s, cross traffic after 4-5 s, and red lights turn green after 5 s. Other cars and pedestrians drive or walk out of the ego car's path and are clear of it at the moment their proposition turns false; they then continue until they leave the canvas. Both lanes see the same timeline, and a stop sign counts as obeyed after the car has waited 0.75 s at the line. Free atoms are false in the simulation, while the model checker explores both values. The simulation is an illustration, and the score comes from the model checker.
 
 ## Run it locally
 

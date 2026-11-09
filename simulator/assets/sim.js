@@ -71,6 +71,39 @@
   const EGO_X = C + LANE, STOP_Y = C + ROAD / 2 + 50, START_Y = STOP_Y + 24; // car waits at the stop line
   const R_LEFT = 60, R_RIGHT = 30;
 
+  // Other road users. Each one is present while its proposition is true. When
+  // the timeline clears the proposition, the actor has just driven (or walked)
+  // out of the area it blocks: it starts moving `clear / speed` ticks earlier,
+  // so it reaches that point exactly at the event time, and it keeps going
+  // until it is off the canvas. Positions depend only on the shared timeline,
+  // so both lanes always show the same actors in the same places.
+  const ACTORS = {
+    // `clear`: distance travelled until the actor no longer blocks the ego.
+    opposite_car: { kind: "car", x: C - LANE, y: C - ROAD / 2 - 70, heading: Math.PI / 2, speed: 2, clear: 70 + ROAD + 30 },
+    car_from_left: { kind: "car", x: C - ROAD / 2 - 60, y: C + LANE, heading: 0, speed: 2, clear: 60 + ROAD + 30 },
+    car_from_right: { kind: "car", x: C + ROAD / 2 + 60, y: C - LANE, heading: Math.PI, speed: 2, clear: 60 + ROAD + 30 },
+    pedestrian_in_front: { kind: "person", x: C + LANE, y: C + ROAD / 2 + 27, heading: 0, speed: 0.6, clear: LANE + 12 },
+    pedestrian_at_right: { kind: "person", x: C + ROAD / 2 + 27, y: C + LANE, heading: Math.PI / 2, speed: 0.6, clear: LANE + 12 },
+    pedestrian_at_left: { kind: "person", x: C - ROAD / 2 - 27, y: C - LANE, heading: -Math.PI / 2, speed: 0.6, clear: LANE + 12 },
+  };
+  const OFF_CANVAS = 30; // an actor this far outside the canvas is gone
+
+  // Actors visible at tick t of a scenario: [{ prop, kind, x, y, heading }].
+  function actorsAt(scenarioId, init, t) {
+    const out = [];
+    for (const [prop, a] of Object.entries(ACTORS)) {
+      if (!(init && init[prop])) continue;
+      const ev = (TIMELINE[scenarioId] || []).find((e) => e.set[prop] === false);
+      const leaveAt = ev ? ev.t - a.clear / a.speed : Infinity;
+      const d = Math.max(0, t - leaveAt) * a.speed;
+      const x = a.x + Math.cos(a.heading) * d, y = a.y + Math.sin(a.heading) * d;
+      if (x < -OFF_CANVAS || x > W + OFF_CANVAS || y < -OFF_CANVAS || y > W + OFF_CANVAS) continue;
+      out.push({ prop, kind: a.kind, x: round(x), y: round(y), heading: a.heading });
+    }
+    return out;
+  }
+  const round = (x) => Math.round(x * 1e6) / 1e6; // keep exact lane coordinates exact
+
   class Lane {
     constructor(canvas, opts) {
       this.canvas = canvas;
@@ -233,12 +266,10 @@
 
     drawActors(ctx, k) {
       const v = this.vars;
-      if (v.pedestrian_in_front) person(ctx, C + LANE, C + ROAD / 2 + 27, k);
-      if (v.pedestrian_at_right) person(ctx, C + ROAD / 2 + 27, C + LANE, k);
-      if (v.pedestrian_at_left) person(ctx, C - ROAD / 2 - 27, C - LANE, k);
-      if (v.opposite_car) this.drawCar(ctx, C - LANE, C - ROAD / 2 - 70, Math.PI / 2, k.other, k.egoGlass);
-      if (v.car_from_left) this.drawCar(ctx, C - ROAD / 2 - 60, C + LANE, 0, k.other, k.egoGlass);
-      if (v.car_from_right) this.drawCar(ctx, C + ROAD / 2 + 60, C - LANE, Math.PI, k.other, k.egoGlass);
+      for (const a of actorsAt(this.scenarioId, this.scenario && this.scenario.init, this.t)) {
+        if (a.kind === "person") person(ctx, a.x, a.y, k);
+        else this.drawCar(ctx, a.x, a.y, a.heading, k.other, k.egoGlass);
+      }
       if (v.side_car) this.drawCar(ctx, C + ROAD / 2 + 16, this.car.y, -Math.PI / 2, k.other, k.egoGlass);
     }
 
@@ -260,7 +291,7 @@
     ctx.strokeStyle = k.ground; ctx.lineWidth = 2; ctx.stroke();
   }
 
-  const api = { Lane, decide, evalGuard, PROPS, MONITORS, EPISODE_TICKS };
+  const api = { Lane, decide, evalGuard, actorsAt, PROPS, MONITORS, EPISODE_TICKS };
   global.LogicTuneSim = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api; // Node tests
 })(typeof window !== "undefined" ? window : globalThis);
