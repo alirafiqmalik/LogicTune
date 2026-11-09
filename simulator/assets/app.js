@@ -97,6 +97,7 @@
         b.textContent = x.score;
         b.title = `Prompt template ${x.template + 1}, sample ${x.sample_idx + 1}: ${x.score}/15`;
         b.setAttribute("aria-label", b.title);
+        b.setAttribute("aria-pressed", String(i === state.sample));
         b.addEventListener("click", () => { state.sample = i; refresh(); });
         cells.appendChild(b);
       });
@@ -133,11 +134,16 @@
     L.lane.load(scen, sample.rules, scen.id);
     const pill = $(".score-pill", node);
     pill.textContent = `${sample.score}/15 specs`;
-    // verdict chips
-    $(".verdicts", node).innerHTML = state.data.specs.map((s, j) => {
-      const ok = sample.specs[j] === 1;
-      return `<span class="chip ${ok ? "pass" : "fail"}" title="${esc(s.id)}: ${esc(s.formula)} — ${esc(s.description)} (${ok ? "satisfied" : "violated"})"><span class="ic">${ok ? "✓" : "✗"}</span>${SPEC_LABEL(s.id)}</span>`;
+    // verdict chips: focusable list items with the formula in a tooltip
+    const verdicts = $(".verdicts", node);
+    verdicts.innerHTML = state.data.specs.map((s, j) => {
+      const ok = sample.specs[j] === 1, verdict = ok ? "satisfied" : "violated";
+      return `<span class="chip ${ok ? "pass" : "fail"}" role="listitem" aria-label="${SPEC_LABEL(s.id)} ${verdict}: ${esc(s.description)}"><span class="ic" aria-hidden="true">${ok ? "✓" : "✗"}</span>${SPEC_LABEL(s.id)}</span>`;
     }).join("");
+    [...verdicts.children].forEach((chip, j) => {
+      const s = state.data.specs[j], verdict = sample.specs[j] === 1 ? "satisfied" : "violated";
+      Charts.bindTip(chip, `<b>${SPEC_LABEL(s.id)} ${verdict}</b><br>${esc(s.formula)}<br>${esc(s.description)}`);
+    });
     // rules
     const rules = sample.rules;
     $(".rules", node).innerHTML = rules.length

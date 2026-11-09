@@ -145,5 +145,5 @@
     });
   }
 
-  global.LogicTuneCharts = { roundsLine, pairedBars, dumbbell, pct };
+  global.LogicTuneCharts = { roundsLine, pairedBars, dumbbell, bindTip, pct };
 })(window);
