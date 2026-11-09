@@ -58,6 +58,9 @@ def export_run(run_dir: str, out_dir: str = "results/latest", label: Optional[st
     commit_file = run / "source_commit.txt"
     if commit_file.exists():
         provenance["source_commit"] = commit_file.read_text().strip()
+    run_summary = run / "summary.json"
+    if run_summary.exists():
+        provenance["wall_seconds"] = json.loads(run_summary.read_text()).get("wall_seconds")
     gpus = sorted(run.glob("gpu-*.csv"))
     if gpus:
         lines = [l for l in gpus[-1].read_text().splitlines() if l and not l.startswith("name")]
