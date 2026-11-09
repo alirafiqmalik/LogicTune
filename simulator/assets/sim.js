@@ -290,8 +290,10 @@
       if (!this.ctx) return;
       const cv = this.canvas, ctx = this.ctx, k = this.colors();
       const dpr = global.devicePixelRatio || 1;
-      const size = Math.min(cv.clientWidth || W, 640);
-      if (cv.width !== Math.round(size * dpr)) { cv.width = Math.round(size * dpr); cv.height = Math.round(size * dpr); }
+      // Backing store = displayed CSS size × devicePixelRatio, so the bitmap is
+      // never stretched (crisp at every layout width and zoom level).
+      const px = Math.round((cv.clientWidth || W) * dpr);
+      if (cv.width !== px || cv.height !== px) { cv.width = px; cv.height = px; }
       ctx.setTransform((cv.width / W), 0, 0, (cv.height / W), 0, 0);
       ctx.fillStyle = k.ground; ctx.fillRect(0, 0, W, W);
       // roads
