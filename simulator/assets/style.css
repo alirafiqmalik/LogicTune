@@ -6,19 +6,22 @@
   --border: #dddcd7;
   --text: #0b0b0b;
   --text-2: #52514e;
-  --text-3: #75746f;
-  --accent: #2a78d6;
+  --text-3: #6b6a65;
+  --accent: #216bc6;        /* links, focus ring, highlights: >= 4.5:1 on every surface */
+  --accent-solid: #216bc6;  /* fills behind --on-accent text */
+  --on-accent: #fff;
   --series-base: #2a78d6;
   --series-ft: #eb6834;
   --series-mid: #8a8984;
   --good: #0ca30c;
   --good-ink: #006300;
-  --critical: #d03b3b;
+  --critical: #d03b3b;      /* borders and canvas flash */
+  --critical-ink: #c23434;  /* text and icons: >= 4.5:1 on --surface-2 */
   --warning: #fab219;
   --warning-ink: #8a5a00;
   --grid: #e6e5e1;
   --band: rgba(42, 120, 214, 0.12);
-  --rule-hit: rgba(42, 120, 214, 0.12);
+  --rule-hit: rgba(33, 107, 198, 0.12);
   /* sample strip: score 0 is --surface-2, 15 is --score-hi; text switches to --score-hi-ink at 13+ */
   --score-hi: #1d5fae;
   --score-hi-ink: #fff;
@@ -38,7 +41,7 @@
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --bg: #111110; --surface: #1a1a19; --surface-2: #232321; --border: #34342f;
-    --text: #f0efec; --text-2: #c3c2b7; --text-3: #94938b; --accent: #3987e5;
+    --text: #f0efec; --text-2: #c3c2b7; --text-3: #94938b; --accent: #3987e5; --accent-solid: #2b6fca; --critical-ink: #ee7171;
     --series-base: #3987e5; --series-ft: #d95926; --series-mid: #8a8984;
     --good-ink: #5fd35f; --warning-ink: #fab219; --grid: #2c2c29; --band: rgba(57, 135, 229, 0.16);
     --rule-hit: rgba(57, 135, 229, 0.2);
@@ -50,7 +53,7 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #111110; --surface: #1a1a19; --surface-2: #232321; --border: #34342f;
-  --text: #f0efec; --text-2: #c3c2b7; --text-3: #94938b; --accent: #3987e5;
+  --text: #f0efec; --text-2: #c3c2b7; --text-3: #94938b; --accent: #3987e5; --accent-solid: #2b6fca; --critical-ink: #ee7171;
   --series-base: #3987e5; --series-ft: #d95926; --series-mid: #8a8984;
   --good-ink: #5fd35f; --warning-ink: #fab219; --grid: #2c2c29; --band: rgba(57, 135, 229, 0.16);
   --rule-hit: rgba(57, 135, 229, 0.2);
@@ -76,7 +79,7 @@ h2 { font-size: 17px; margin: 0 0 4px; }
 .top { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; }
 .top-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 10px; padding-bottom: 10px; flex-wrap: wrap; }
 .brand { display: flex; gap: 12px; align-items: center; min-width: 0; }
-.logo { width: 34px; height: 34px; border-radius: 8px; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
+.logo { width: 34px; height: 34px; border-radius: 8px; background: var(--accent-solid); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
 .sub { margin: 0; font-size: 12.5px; color: var(--text-2); }
 .links { display: flex; gap: 14px; align-items: center; font-size: 14px; flex-wrap: wrap; }
 .links a { text-decoration: none; color: var(--text-2); }
@@ -85,7 +88,7 @@ h2 { font-size: 17px; margin: 0 0 4px; }
 button, select, input { font: inherit; color: inherit; }
 button { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
 button:hover { border-color: var(--text-3); }
-button.primary { background: var(--accent); border-color: var(--accent); color: #fff; min-width: 76px; }
+button.primary { background: var(--accent-solid); border-color: var(--accent-solid); color: var(--on-accent); min-width: 76px; }
 button.ghost { background: transparent; }
 select { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; max-width: 100%; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -145,12 +148,12 @@ canvas { width: 100%; height: 100%; display: block; }
 .chip .ic { font-weight: 700; margin-right: 2px; }
 .chip.pass .ic { color: var(--good-ink); }
 .chip.fail { border-color: var(--critical); }
-.chip.fail .ic { color: var(--critical); }
+.chip.fail .ic { color: var(--critical-ink); }
 
 .monitor, .rules-box { font-size: 13px; margin-top: 8px; }
 .violations { margin: 4px 0 0; padding-left: 18px; }
 .violations li { margin: 2px 0; }
-.violations .bad { color: var(--critical); font-weight: 600; }
+.violations .bad { color: var(--critical-ink); font-weight: 600; }
 .rules { position: relative; margin: 4px 0 0; padding-left: 22px; max-height: 210px; overflow: auto; } /* offsetTop of items is measured from the list */
 .rules li { padding: 2px 6px; border-radius: 6px; font-size: 12.5px; }
 .rules li.hit { background: var(--rule-hit); outline: 1px solid var(--accent); }
