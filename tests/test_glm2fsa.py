@@ -86,3 +86,67 @@ def test_controller_json_round_trip():
     ctrl = extract_rules("1. If not green_traffic_light, stop.\n2. Otherwise, go_straight.")
     again = Controller.from_json(ctrl.to_json())
     assert [r.guard for r in again.rules] == [r.guard for r in ctrl.rules]
+
+
+def test_nested_conditions_by_indentation():
+    ctrl = extract_rules(
+        "If green_traffic_light and pedestrian_in_front,\n"
+        "    If stop_sign, stop\n"
+        "    Otherwise, go_straight\n"
+        "If not green_traffic_light, stop"
+    )
+    assert [r.guard.to_smv() for r in ctrl.rules] == [
+        "green_traffic_light & pedestrian_in_front & stop_sign",
+        "green_traffic_light & pedestrian_in_front",
+        "!green_traffic_light",
+    ]
+
+
+def test_header_then_line_blocks():
+    ctrl = extract_rules(
+        "If green_left_turn_light is true,\nIf opposite_car is true,\nThen go_straight action.\n\n"
+        "If opposite_car is false,\nThen stop action."
+    )
+    assert [(r.guard.to_smv(), r.action) for r in ctrl.rules] == [
+        ("green_left_turn_light & opposite_car", "go_straight"),
+        ("!opposite_car", "stop"),
+    ]
+
+
+def test_header_with_bullet_action():
+    ctrl = extract_rules("If stop_sign:\n- stop\n\nOtherwise, go_straight")
+    assert [(r.guard.to_smv(), r.action) for r in ctrl.rules] == [("stop_sign", "stop"), ("TRUE", "go_straight")]
+
+
+def test_if_yes_is_not_always_true():
+    ctrl = extract_rules("The controller checks the light. If yes, stop.")
+    assert ctrl.rules[0].guard.to_smv() != "TRUE"
+
+
+def test_comma_list_condition_then_action():
+    ctrl = extract_rules("If green_traffic_light, pedestrian_in_front, stop_sign, then the car should stop.")
+    assert ctrl.rules[0].guard.to_smv() == "green_traffic_light & pedestrian_in_front & stop_sign"
+
+
+def test_comma_list_actions_after_condition():
+    ctrl = extract_rules("If there is a pedestrian in front, stop and wait until the pedestrian has crossed, then proceed.")
+    assert (ctrl.rules[0].guard.to_smv(), ctrl.rules[0].action) == ("pedestrian_in_front", "stop")
+
+
+def test_bare_then_line_keeps_header():
+    ctrl = extract_rules("If stop_sign and car_from_left,\nthen:\n    stop")
+    assert (ctrl.rules[0].guard.to_smv(), ctrl.rules[0].action) == ("stop_sign & car_from_left", "stop")
+
+
+def test_identifier_bullets_under_headers():
+    ctrl = extract_rules(
+        "1. If green_left_turn_light is true and a car is coming from the left, then:\n    - turn_left\n"
+        "2. If a pedestrian is in front and the car wants to turn left, then:\n    - stop\n"
+    )
+    assert [r.action for r in ctrl.rules] == ["turn_left", "stop"]
+    assert "pedestrian_in_front" in ctrl.rules[1].guard.atoms()
+
+
+def test_rule_label_prefix():
+    ctrl = extract_rules("Rule: If there is a red light, the car should stop.")
+    assert (ctrl.rules[0].guard.to_smv(), ctrl.rules[0].action) == ("!green_traffic_light", "stop")

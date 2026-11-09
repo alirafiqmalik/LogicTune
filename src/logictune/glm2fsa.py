@@ -322,6 +322,7 @@ _PHRASES: List[Tuple[str, str]] = [
     (r"\bgreen\s+(?:left\s+)?arrow\b", " §green_left_turn_light§ "),
     (rf"\bleft[- ]turn\s+(?:arrow|light|signal)\s+{_IS}\s+(?:green|on|lit)\b", " §green_left_turn_light§ "),
     (r"\bprotected\s+left(?:[- ]turn)?\b", " §green_left_turn_light§ "),
+    (r"\bleft[- ]turn\s+(?:arrow|signal)\b|\bleft\s+arrow\b", " §green_left_turn_light§ "),
     (r"\bgreen\s+traffic\s+(?:light|signal)\b", " §green_traffic_light§ "),
     (r"\bgreen\s+(?:light|signal)\b", " §green_traffic_light§ "),
     (rf"\b{_LIGHT}\s+{_IS}\s+green\b", " §green_traffic_light§ "),
@@ -357,7 +358,7 @@ _FILLER = set(
     """there is are the a an it its be been being present detected exists exist visible any some
     currently also still you we i at in on of to has have this that if when then car vehicle ego
     autonomous intersection approaching approach light lights signal state condition conditions
-    true yes = == equals should must""".split()
+    true = == equals should must does do did having wants want""".split()
 )
 _OPS = {"and", "or", "not", "no", "neither", "nor", "(", ")"}
 
@@ -508,6 +509,14 @@ _ACTION_PATTERNS: List[Tuple[str, str]] = [
 _ACTION_PATTERNS_C = [(a, re.compile(p, re.IGNORECASE)) for a, p in _ACTION_PATTERNS]
 
 
+def _action_start(text: str) -> Optional[int]:
+    """Character offset of the first action phrase in ``text`` (or None)."""
+    s = _NON_ACTIONS.sub(lambda m: " " * len(m.group(0)), text)
+    starts = [m.start() for m in _NEG_MOVE.finditer(s)]
+    starts += [m.start() for _, pat in _ACTION_PATTERNS_C for m in [pat.search(s)] if m]
+    return min(starts) if starts else None
+
+
 def parse_action(text: str) -> Optional[str]:
     """Return the canonical action named in ``text`` (or None)."""
     s = _NON_ACTIONS.sub(" ", text)
@@ -534,83 +543,144 @@ def parse_action(text: str) -> Optional[str]:
 # Rule extraction
 # ---------------------------------------------------------------------------
 
-_LIST_MARKER = re.compile(r"^\s*(?:(?:rule|step)\s*\d+\s*[:.)\-]?|\d+\s*[.):\-]|[-*•>]|\(\w\))\s*", re.IGNORECASE)
+_LIST_MARKER = re.compile(r"^\s*(?:(?:rule|step)\s*\d+\s*[:.)\-]?|(?:rule|step)\s*[:.)\-]|\d+\s*[.):\-]|[-*•>]|\(\w\))\s*", re.IGNORECASE)
 _COND_HEAD = r"(?:if|when|whenever|while|once|in\s+case|as\s+long\s+as|provided\s+(?:that)?|in\s+the\s+event\s+(?:that|of))"
 _SPLITTERS = [r",?\s+then\s+", r"\s*(?:->|=>|→)\s*", r"\s*:\s+", r",\s*"]
 
 
-def _split_clauses(response: str) -> List[str]:
-    text = response.replace("\r", "\n")
-    text = re.sub(r"\*\*|__|`", "", text)
-    clauses: List[str] = []
+_BLOCK_END = object()
+
+
+def _lines(response: str):
+    """Yield (indent, text) per non-empty line and _BLOCK_END for blank lines."""
+    text = re.sub(r"\*\*|__|`", "", response.replace("\r", "\n")).replace("\t", "    ")
     for raw in text.split("\n"):
+        if not raw.strip():
+            yield _BLOCK_END
+            continue
+        indent = len(raw) - len(raw.lstrip())
+        if re.match(r"^\s*[-*•>]\s", raw):
+            indent += 1  # a bullet is a child of a header at the same column
         line = _LIST_MARKER.sub("", raw.strip(), count=1).strip()
         line = _LIST_MARKER.sub("", line, count=1).strip()
-        if not line:
-            continue
-        # split sentences and "; otherwise"
-        parts = re.split(r"(?<=[.!?])\s+(?=[A-Z0-9(])|;\s*|\.\s+(?=otherwise|else)|,\s*(?=otherwise\b|else\b)", line)
-        for p in parts:
-            p = p.strip().rstrip(".!").strip()
-            if p:
-                clauses.append(p)
-    return clauses
+        if line:
+            yield indent, line
+
+
+def _sentences(line: str) -> List[str]:
+    parts = re.split(r"(?<=[.!?])\s+(?=[A-Z0-9(])|;\s*|\.\s+(?=otherwise|else)|,\s*(?=otherwise\b|else\b)", line)
+    return [p.strip().rstrip(".!").strip() for p in parts if p.strip().rstrip(".!").strip()]
 
 
 def _parse_conditional(clause: str) -> Optional[Tuple[str, str]]:
+    """Split "If <cond>, <action>" at the best separator.
+
+    Preferred split: the earliest one where the condition names no action and
+    the remainder starts with an action (within its first eight words). This
+    keeps comma-separated condition lists ("If a, b, c, then stop") and
+    comma-separated action lists ("If a, stop and wait, then go") apart.
+    """
     m = re.match(rf"^{_COND_HEAD}\s+(.+)$", clause, re.IGNORECASE | re.DOTALL)
     if not m:
         return None
     body = m.group(1)
-    best: Optional[Tuple[str, str]] = None
+    cands = []
     for sp in _SPLITTERS:
         for mm in re.finditer(sp, body):
             cond, act = body[: mm.start()], body[mm.end():]
-            if parse_action(act) is not None and cond.strip():
-                if best is None or mm.start() < len(best[0]):
-                    best = (cond, act)
-                break
-    return best
+            if cond.strip() and parse_action(act) is not None:
+                cands.append((mm.start(), cond, act))
+    if not cands:
+        return None
+    def starts_with_action(act: str) -> bool:
+        pos = _action_start(act)
+        if pos is None:
+            return False
+        prefix = act[:pos]
+        return len(prefix.split()) <= 6 and "§" not in _normalize_condition(prefix)
+
+    good = [c for c in cands if parse_action(c[1]) is None and starts_with_action(c[2])]
+    pos, cond, act = min(good or cands, key=lambda c: c[0])
+    return cond, act
+
+
+def _header_condition(line: str) -> Optional[str]:
+    """A condition line without an action, e.g. "If the light is green, then:"."""
+    m = re.match(rf"^{_COND_HEAD}\s+(.+?)\s*(?:,?\s*then\s*:?|,|:)\s*$", line, re.IGNORECASE | re.DOTALL)
+    if m and _parse_conditional(line) is None:
+        return m.group(1)
+    return None
+
+
+def _parse_clause(clause: str, unknown: Dict[str, str]) -> Tuple[Optional[Expr], Optional[str]]:
+    low = clause.lower()
+    # 1. "If/When <cond>, <action>"
+    ca = _parse_conditional(clause)
+    if ca is not None:
+        return parse_condition(ca[0], unknown), parse_action(ca[1])
+    # 2. "Otherwise/Else <action>"
+    if re.match(r"^(?:otherwise|else|in\s+all\s+other\s+cases|in\s+any\s+other\s+case|by\s+default|default)\b", low):
+        return TRUE, parse_action(clause)
+    # 3. "<cond> -> <action>" with formal identifiers
+    m = re.match(r"^(.+?)\s*(?:->|=>|→|:)\s*(.+)$", clause)
+    if m and re.search(r"§", _normalize_condition(m.group(1))) and parse_action(m.group(2)):
+        return parse_condition(m.group(1), unknown), parse_action(m.group(2))
+    # 4. "<action> if/when/unless/until <cond>"
+    m = re.match(r"^(.+?)\s+(if|when|whenever|as\s+long\s+as|only\s+if|unless|until|while)\s+(.+)$", clause, re.IGNORECASE)
+    if m and parse_action(m.group(1)) and len(m.group(1).split()) <= 10:
+        cond = parse_condition(m.group(3), unknown)
+        guard = mk_not(cond) if m.group(2).lower() in ("unless", "until") else cond
+        return guard, parse_action(m.group(1))
+    # 5. Unconditional imperative ("Stop.", "Turn right.")
+    if re.match(r"^(?:turn_left|turn_right|go_straight|stop|wait|halt|yield|go|proceed|continue|turn|drive|remain|stay|come\s+to\s+a)\b", low):
+        return TRUE, parse_action(clause)
+    return None, None
 
 
 def extract_rules(response: str) -> Controller:
-    """Parse a model response into a :class:`Controller`."""
+    """
+    Parse a model response into a :class:`Controller`.
+
+    Nested conditions are supported: a line that is only a condition
+    ("If A," / "When A:") opens a block, and rules inside the block (indented
+    lines, a following "then ..." line, or lines up to the next blank line)
+    get the conjunction of the enclosing conditions.
+    """
     unknown: Dict[str, str] = {}
     rules: List[Rule] = []
-    for clause in _split_clauses(response):
-        low = clause.lower()
-        guard: Optional[Expr] = None
-        action: Optional[str] = None
-
-        # 1. "If/When <cond>, <action>"
-        ca = _parse_conditional(clause)
-        if ca is not None:
-            guard = parse_condition(ca[0], unknown)
-            action = parse_action(ca[1])
-        # 2. "Otherwise/Else <action>"
-        elif re.match(r"^(?:otherwise|else|in\s+all\s+other\s+cases|in\s+any\s+other\s+case|by\s+default|default)\b", low):
-            action = parse_action(clause)
-            guard = TRUE
-        else:
-            # 3. "<cond> -> <action>" with formal identifiers
-            m = re.match(r"^(.+?)\s*(?:->|=>|→|:)\s*(.+)$", clause)
-            if m and re.search(r"§", _normalize_condition(m.group(1))) and parse_action(m.group(2)):
-                guard = parse_condition(m.group(1), unknown)
-                action = parse_action(m.group(2))
-            else:
-                # 4. "<action> if/when/unless/until <cond>"
-                m = re.match(r"^(.+?)\s+(if|when|whenever|as\s+long\s+as|only\s+if|unless|until|while)\s+(.+)$", clause, re.IGNORECASE)
-                if m and parse_action(m.group(1)) and len(m.group(1).split()) <= 10:
-                    cond = parse_condition(m.group(3), unknown)
-                    kw = m.group(2).lower()
-                    guard = mk_not(cond) if kw in ("unless", "until") else cond
-                    action = parse_action(m.group(1))
-                # 5. Unconditional imperative ("Stop.", "Turn right.")
-                elif re.match(r"^(?:stop|wait|halt|yield|go|proceed|continue|turn|drive|remain|stay|come\s+to\s+a)\b", low):
-                    action = parse_action(clause)
-                    guard = TRUE
-        if action in ACTIONS and guard is not None:
-            rules.append(Rule(guard=guard, action=action, text=clause[:300]))
+    stack: List[Tuple[int, Expr]] = []
+    prev_header_indent: Optional[int] = None
+    for item in _lines(response):
+        if item is _BLOCK_END:
+            stack.clear()
+            prev_header_indent = None
+            continue
+        indent, line = item
+        then_m = re.match(r"^then\b[\s,:]*", line, re.IGNORECASE)
+        if then_m and not line[then_m.end():].strip():
+            continue  # bare "then:" keeps the open header for the next (indented) line
+        header = None if then_m else _header_condition(line)
+        chained = header is not None and prev_header_indent is not None and indent == prev_header_indent
+        if not then_m and not chained:
+            while stack and stack[-1][0] >= indent:
+                stack.pop()
+        if header is not None:
+            stack.append((indent, parse_condition(header, unknown)))
+            prev_header_indent = indent
+            continue
+        prev_header_indent = None
+        context = [c for _, c in stack]
+        body = line[then_m.end():] if then_m else line
+        for clause in _sentences(body):
+            guard, action = _parse_clause(clause, unknown)
+            if then_m and action is None:
+                action, guard = parse_action(clause), TRUE
+            if action in ACTIONS and guard is not None:
+                full = mk_and(context + [guard])
+                src = clause if not context else f"[{' & '.join(c.to_text() for c in context)}] {clause}"
+                rules.append(Rule(guard=full, action=action, text=src[:300]))
+        if then_m and stack:
+            stack.pop()
     unknown_atoms = {v: k for k, v in unknown.items() if any(v in r.guard.atoms() for r in rules)}
     return Controller(rules=rules, unknown_atoms=unknown_atoms)
 
