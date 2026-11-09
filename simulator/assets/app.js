@@ -153,6 +153,15 @@
     updateLaneHud(idx);
   }
 
+  // Scroll the rules list (not the page) so the firing rule is visible.
+  function revealRule(ol, idx) {
+    const li = idx >= 0 ? ol.children[idx] : null;
+    if (!li) return;
+    if (li.offsetTop < ol.scrollTop || li.offsetTop + li.offsetHeight > ol.scrollTop + ol.clientHeight) {
+      ol.scrollTop = li.offsetTop - ol.clientHeight / 3;
+    }
+  }
+
   function updateLaneHud(idx) {
     const L = state.lanes[idx], lane = L.lane, node = L.node;
     const d = lane.decision;
@@ -162,6 +171,7 @@
     $(".hud-rule", node).textContent = d.rule >= 0 ? `rule ${d.rule + 1} · t = ${(lane.t / 60).toFixed(1)} s` : `undefined · t = ${(lane.t / 60).toFixed(1)} s`;
     if (L.lastRule !== d.rule) {
       node.querySelectorAll(".rules li").forEach((li, i) => li.classList.toggle("hit", i === d.rule));
+      revealRule($(".rules", node), d.rule);
       L.lastRule = d.rule;
     }
     if (L.lastViolations !== lane.violations.length) {

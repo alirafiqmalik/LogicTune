@@ -145,7 +145,7 @@ canvas { width: 100%; height: 100%; display: block; }
 .violations { margin: 4px 0 0; padding-left: 18px; }
 .violations li { margin: 2px 0; }
 .violations .bad { color: var(--critical); font-weight: 600; }
-.rules { margin: 4px 0 0; padding-left: 22px; max-height: 210px; overflow: auto; }
+.rules { position: relative; margin: 4px 0 0; padding-left: 22px; max-height: 210px; overflow: auto; } /* offsetTop of items is measured from the list */
 .rules li { padding: 2px 6px; border-radius: 6px; font-size: 12.5px; }
 .rules li.hit { background: var(--rule-hit); outline: 1px solid var(--accent); }
 .rules .act { font-weight: 600; font-family: "JetBrains Mono", ui-monospace, monospace; }
