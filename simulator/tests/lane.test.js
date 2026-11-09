@@ -24,7 +24,7 @@ test("a lane whose car has crossed keeps showing the shared environment timeline
 test("after crossing, the car, decision and monitor are frozen and the crossing time is kept", () => {
   const l = untilDone(lane(4, [rule(T, "go_straight")]));
   const car = { ...l.car }, decision = l.decision, crossedAt = l.doneAt;
-  assert.equal(crossedAt, l.t / 60);
+  assert.ok(crossedAt <= l.t / 60 && crossedAt > (l.t - 1) / 60, "set during the last step");
   run(l, 200);
   assert.deepEqual(l.car, car);
   assert.equal(l.decision, decision);

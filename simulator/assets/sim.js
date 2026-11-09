@@ -46,6 +46,7 @@
   const timelineFor = (scenarioId) => (TIMELINE[scenarioId] || []).concat(
     hasTrafficLight(scenarioId) ? [] : [{ t: FAIR_GREEN_TICK, set: { green_traffic_light: true } }]);
   const EPISODE_TICKS = 900;
+  const SUBSTEP = 0.25; // simulation step in ticks; every playback speed is a multiple
   const STOP_SIGN_HOLD = 45; // ticks stopped at the line before the sign counts as obeyed
 
   // Invariant (state-action) specifications checked at run time.
@@ -135,6 +136,25 @@
   }
   const round = (x) => Math.round(x * 1e6) / 1e6; // keep exact lane coordinates exact
 
+  // How an episode ended, from where the car is.
+  const CAR_HALF = 20; // half the car's length
+  const offCanvas = (c) => c.x < -CAR_HALF || c.x > W + CAR_HALF || c.y < -CAR_HALF || c.y > W + CAR_HALF;
+  const inBox = (u) => u >= C - ROAD / 2 && u <= C + ROAD / 2;
+  function classifyOutcome(c) {
+    if (offCanvas(c)) return "crossed";
+    if (inBox(c.x) && inBox(c.y)) return "in intersection";
+    if (c.mode === "approach" && c.y > C + ROAD / 2) return "waiting";
+    return "exit road";
+  }
+  const OUTCOME_TEXT = {
+    crossed: "Crossed the intersection",
+    waiting: "Still waiting at the stop line",
+    "in intersection": "Stopped inside the intersection",
+    "exit road": "Stopped after the intersection",
+  };
+  const outcomeText = (outcome, doneAt) =>
+    OUTCOME_TEXT[outcome] + (outcome === "crossed" && doneAt != null ? ` at ${doneAt.toFixed(1)} s` : "");
+
   class Lane {
     constructor(canvas, opts) {
       this.canvas = canvas;
@@ -155,6 +175,7 @@
       const init = (this.scenario && this.scenario.init) || {};
       this.vars = Object.fromEntries(PROPS.map((p) => [p, !!init[p]]));
       this.t = 0;
+      this.pending = 0; // playback ticks not yet simulated (less than one substep)
       this.car = { x: EGO_X, y: START_Y, heading: -Math.PI / 2, speed: 0, mode: "approach", target: null, turnLeft: 0 };
       this.events = timelineFor(this.scenarioId).map((e) => ({ t: e.t, set: { ...e.set }, fired: false }));
       this.stoppedAtLine = 0;
@@ -178,15 +199,24 @@
     // The environment (time, timeline, other road users) runs for the whole
     // episode, so every lane keeps showing the shared timeline. The car, the
     // controller and the monitor stop once the car's outcome is decided.
+    // Advance by dt ticks (the playback speed) in fixed substeps, so the
+    // episode is the same at every speed.
     step(dt) {
-      if (this.t >= EPISODE_TICKS) return;
+      this.pending += dt;
+      while (this.pending >= SUBSTEP - 1e-9 && this.t < EPISODE_TICKS) {
+        this.pending -= SUBSTEP;
+        this.tick(SUBSTEP);
+      }
+      this.onTick(this);
+    }
+
+    tick(dt) {
       this.t = Math.min(EPISODE_TICKS, this.t + dt);
       for (const ev of this.events) {
         if (!ev.fired && this.t >= ev.t) { Object.assign(this.vars, ev.set); ev.fired = true; }
       }
       if (!this.done) this.stepCar(dt);
       if (this.flash > 0) this.flash -= dt;
-      this.onTick(this);
     }
 
     stepCar(dt) {
@@ -210,11 +240,8 @@
         }
       }
       this.move(a, dt);
-      if (this.car.x < -40 || this.car.x > W + 40 || this.car.y < -40) {
-        this.finish("crossed");
-      } else if (this.t >= EPISODE_TICKS) {
-        this.finish(this.car.mode === "approach" ? "waiting" : "in intersection");
-      }
+      if (offCanvas(this.car)) this.finish("crossed");
+      else if (this.t >= EPISODE_TICKS) this.finish(classifyOutcome(this.car));
     }
 
     finish(outcome) {
@@ -353,7 +380,7 @@
     ctx.strokeStyle = k.ground; ctx.lineWidth = 2; ctx.stroke();
   }
 
-  const api = { Lane, decide, evalGuard, actorsAt, hasTrafficLight, PROPS, MONITORS, EPISODE_TICKS, FAIR_GREEN_TICK };
+  const api = { Lane, decide, evalGuard, actorsAt, hasTrafficLight, classifyOutcome, outcomeText, PROPS, MONITORS, EPISODE_TICKS, FAIR_GREEN_TICK };
   global.LogicTuneSim = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api; // Node tests
 })(typeof window !== "undefined" ? window : globalThis);

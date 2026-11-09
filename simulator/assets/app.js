@@ -5,7 +5,7 @@
  */
 (function () {
   "use strict";
-  const { Lane, hasTrafficLight, FAIR_GREEN_TICK } = window.LogicTuneSim;
+  const { Lane, hasTrafficLight, outcomeText, FAIR_GREEN_TICK } = window.LogicTuneSim;
   const Charts = window.LogicTuneCharts;
   const pct = Charts.pct;
   const SPEC_LABEL = (id) => "φ" + id.split("_")[1];
@@ -175,7 +175,7 @@
     const out = $(".outcome", node);
     if (lane.done) {
       out.hidden = false;
-      out.textContent = lane.outcome === "crossed" ? `Crossed the intersection at ${lane.doneAt.toFixed(1)} s` : lane.outcome === "waiting" ? "Still waiting at the stop line" : "Stopped inside the intersection";
+      out.textContent = outcomeText(lane.outcome, lane.doneAt);
     } else out.hidden = true;
   }
 
